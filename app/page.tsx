@@ -10,6 +10,15 @@ import { QuickCaptureModal, type CapturedNote } from "@/components/quick-capture
 import { TagsPanel } from "@/components/tags-panel"
 import { buildTagRegistry, colorById, getTagColor, type TagEntry } from "@/lib/tags"
 import type { NoteTag } from "@/components/note-list-panel"
+import { TodoNavPanel, type TodoSelection } from "@/components/todo-nav-panel"
+import { TodoListView, type NewTaskInput } from "@/components/todo-list-view"
+import {
+  INITIAL_TASKS,
+  INITIAL_PROJECTS,
+  todayISO,
+  type Task,
+  type Project,
+} from "@/lib/todos"
 
 // ── Rich HTML seed content per note ────────────────────────────────────────
 export const NOTE_CONTENT: Record<string, string> = {
@@ -146,9 +155,97 @@ const INITIAL_NOTES: Note[] = [
 export default function Page() {
   const [notes, setNotes] = useState<Note[]>(INITIAL_NOTES)
   const [activeNoteId, setActiveNoteId] = useState<string>(INITIAL_NOTES[0].id)
-  const [activeNav, setActiveNav] = useState<"inbox" | "notes" | "tags" | "search">("notes")
+  const [activeNav, setActiveNav] = useState<"inbox" | "notes" | "todos" | "tags" | "search">("notes")
   const [captureOpen, setCaptureOpen] = useState(false)
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null)
+
+  // ── To-do state ──
+  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS)
+  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS)
+  const [todoSelection, setTodoSelection] = useState<TodoSelection>({ kind: "section", id: "today" })
+
+  // Toggle a task complete/incomplete
+  const handleToggleTask = useCallback((id: string) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, done: !t.done, completedAt: !t.done ? Date.now() : null }
+          : t
+      )
+    )
+  }, [])
+
+  // Toggle a subtask
+  const handleToggleSubtask = useCallback((taskId: string, subId: string) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? { ...t, subtasks: t.subtasks.map((s) => (s.id === subId ? { ...s, done: !s.done } : s)) }
+          : t
+      )
+    )
+  }, [])
+
+  // Rename a task title
+  const handleUpdateTaskTitle = useCallback((id: string, title: string) => {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)))
+  }, [])
+
+  // Add a new task into the current selection
+  const handleAddTask = useCallback((input: NewTaskInput) => {
+    setTasks((prev) => {
+      const id = `task-${Date.now()}`
+      const base: Task = {
+        id,
+        title: input.title,
+        notes: input.notes ?? undefined,
+        due: input.due,
+        tag: input.tag ?? undefined,
+        done: false,
+        completedAt: null,
+        subtasks: [],
+        projectId: null,
+        order: prev.length,
+      }
+      // Place into the active list
+      if (todoSelection.kind === "project") {
+        base.projectId = todoSelection.id
+      } else {
+        switch (todoSelection.id) {
+          case "today":
+            if (!input.due) base.pinnedToday = true
+            else base.due = input.due
+            break
+          case "someday":
+            base.someday = true
+            break
+          case "upcoming":
+            // keep provided due date; default to tomorrow if none
+            if (!input.due) {
+              const d = new Date(); d.setDate(d.getDate() + 1)
+              base.due = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+            }
+            break
+          // inbox / anytime: leave as provided
+        }
+      }
+      return [...prev, base]
+    })
+  }, [todoSelection])
+
+  // Create a new project
+  const handleNewProject = useCallback(() => {
+    const id = `proj-${Date.now()}`
+    const emojis = ["📁", "🚀", "📌", "🎯", "💡", "🌱", "📦", "⭐"]
+    const newProject: Project = {
+      id,
+      name: "New Project",
+      emoji: emojis[Math.floor(Math.random() * emojis.length)],
+      headings: [],
+    }
+    setProjects((prev) => [...prev, newProject])
+    setTodoSelection({ kind: "project", id })
+  }, [])
 
   // Derived state
   const inboxNotes = notes.filter((n) => n.inInbox)
@@ -285,6 +382,28 @@ export default function Page() {
         inboxCount={inboxNotes.length}
       />
 
+      {/* To-do mode takes over columns 2 + 3 */}
+      {activeNav === "todos" ? (
+        <>
+          <TodoNavPanel
+            tasks={tasks}
+            projects={projects}
+            selection={todoSelection}
+            onSelect={setTodoSelection}
+            onNewProject={handleNewProject}
+          />
+          <TodoListView
+            selection={todoSelection}
+            tasks={tasks}
+            projects={projects}
+            onToggleTask={handleToggleTask}
+            onToggleSubtask={handleToggleSubtask}
+            onAddTask={handleAddTask}
+            onUpdateTitle={handleUpdateTaskTitle}
+          />
+        </>
+      ) : (
+        <>
       {/* Column 2 — Inbox, Tags panel, or Note list */}
       {activeNav === "inbox" ? (
         <InboxView
@@ -356,6 +475,8 @@ export default function Page() {
         onClose={() => setCaptureOpen(false)}
         onCapture={handleCapture}
       />
+        </>
+      )}
     </div>
   )
 }

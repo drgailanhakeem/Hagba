@@ -349,3 +349,71 @@
   transform: scale(1.08);
   box-shadow: 0 6px 20px rgba(217, 123, 69, 0.35) !important;
 }
+
+/* ─── Things 3-style to-do ──────────────────────────────────── */
+
+/* Task row hover tint */
+.todo-task-row {
+  transition: background-color 0.12s ease;
+}
+.todo-task-row:hover {
+  background-color: #F4F4F7;
+}
+
+/* Nav rows */
+.todo-nav-row {
+  transition: background-color 0.12s ease;
+  cursor: pointer;
+}
+.todo-nav-row:hover {
+  background-color: #EFEFF3;
+}
+
+/* Checkbox checkmark draw-in */
+@keyframes checkPop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.todo-check-mark {
+  animation: checkPop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Row fade-out on completion */
+@keyframes taskComplete {
+  0%   { opacity: 1; max-height: 80px; transform: translateX(0); }
+  100% { opacity: 0; max-height: 0; transform: translateX(6px); }
+}
+.todo-task-completing {
+  animation: taskComplete 0.5s ease forwards;
+  animation-delay: 0.35s;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Quick-add slide down */
+@keyframes quickAddIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.todo-quick-add {
+  animation: quickAddIn 0.18s ease;
+}
+
+/* Subtask reveal */
+@keyframes subtaskIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.todo-subtasks {
+  animation: subtaskIn 0.2s ease;
+}
+
+/* Things-style blue FAB */
+.todo-fab {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.todo-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4) !important;
+}

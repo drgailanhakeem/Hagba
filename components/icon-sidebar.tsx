@@ -3,6 +3,7 @@
 import {
   Inbox,
   FileText,
+  CircleCheck,
   Tag,
   Search,
   Settings,
@@ -10,10 +11,11 @@ import {
 } from "lucide-react"
 
 const NAV_ITEMS = [
-  { id: "inbox",  icon: Inbox,    label: "Inbox"  },
-  { id: "notes",  icon: FileText, label: "Notes"  },
-  { id: "tags",   icon: Tag,      label: "Tags"   },
-  { id: "search", icon: Search,   label: "Search" },
+  { id: "inbox",  icon: Inbox,       label: "Inbox"  },
+  { id: "notes",  icon: FileText,    label: "Notes"  },
+  { id: "todos",  icon: CircleCheck, label: "To-Dos" },
+  { id: "tags",   icon: Tag,         label: "Tags"   },
+  { id: "search", icon: Search,      label: "Search" },
 ] as const
 
 type NavId = (typeof NAV_ITEMS)[number]["id"]
