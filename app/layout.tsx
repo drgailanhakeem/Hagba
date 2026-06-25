@@ -10,9 +10,12 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Bear Notes',
-  description: 'A calm, minimal note-taking app inspired by Bear.',
+  title: 'Hagba',
+  description: 'Hagba — a calm space to capture thoughts, focus, and get things done.',
   generator: 'v0.app',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export const viewport: Viewport = {

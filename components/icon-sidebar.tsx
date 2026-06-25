@@ -7,7 +7,6 @@ import {
   Tag,
   Search,
   Settings,
-  PenLine,
 } from "lucide-react"
 
 const NAV_ITEMS = [
@@ -33,12 +32,25 @@ export function IconSidebar({ active, onSelect, inboxCount = 0 }: IconSidebarPro
       className="flex flex-col items-center h-full py-4 gap-1"
       style={{ width: 56, backgroundColor: "#1C1C1E", flexShrink: 0 }}
     >
-      {/* App mark */}
+      {/* App mark — "H" lettermark for Hagba */}
       <div
-        className="mb-4 flex items-center justify-center w-9 h-9 rounded-xl"
+        className="mb-4 flex items-center justify-center w-9 h-9 rounded-xl select-none"
         style={{ backgroundColor: "#D97B45" }}
+        aria-label="Hagba"
       >
-        <PenLine size={16} strokeWidth={2} style={{ color: "#FAF9F7" }} aria-hidden="true" />
+        <span
+          aria-hidden="true"
+          style={{
+            color: "#FAF9F7",
+            fontSize: 17,
+            fontWeight: 700,
+            fontFamily: "'Georgia', serif",
+            lineHeight: 1,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          H
+        </span>
       </div>
 
       {/* Nav icons */}
