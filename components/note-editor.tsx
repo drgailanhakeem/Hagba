@@ -8,9 +8,11 @@ import { PomodoroTimer } from "./pomodoro-timer"
 
 import type { TagEntry } from "@/lib/tags"
 
+export type NoteChanges = Partial<Pick<Note, "title" | "preview" | "content">>
+
 interface NoteEditorProps {
   note: Note | null
-  onUpdate: (id: string, changes: Partial<Pick<Note, "title" | "preview">>) => void
+  onUpdate: (id: string, changes: NoteChanges) => void
   initialContent?: string
   existingTags?: TagEntry[]
   onTagCreated?: (label: string) => void
@@ -87,6 +89,7 @@ export function NoteEditor({ note, onUpdate, initialContent: seedContent, existi
         onUpdate(note.id, {
           title: titleValue,
           preview: text.slice(0, 140),
+          content: html,
         })
         const now = new Date()
         setLastSaved(now)
@@ -97,7 +100,7 @@ export function NoteEditor({ note, onUpdate, initialContent: seedContent, existi
         savingTimerRef.current = setTimeout(() => {
           setSaveStatus("idle")
         }, 3000)
-      }, 800)
+      }, 1000)
     },
     [note, titleValue, onUpdate]
   )

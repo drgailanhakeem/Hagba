@@ -86,6 +86,43 @@
   }
 }
 
+/* ─── Auth forms ─── */
+.auth-input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid #E2DDD5;
+  background-color: #FFFFFF;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.9375rem;
+  color: #1C1B19;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.auth-input::placeholder {
+  color: #B8B4AC;
+}
+.auth-input:focus {
+  border-color: #D97B45;
+  box-shadow: 0 0 0 3px rgba(217, 123, 69, 0.15);
+}
+.auth-btn-primary {
+  width: 100%;
+  border-radius: 0.5rem;
+  background-color: #D97B45;
+  padding: 0.625rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #FAF9F7;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+.auth-btn-primary:hover {
+  background-color: #C96B38;
+}
+.auth-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ─── Note list scrollbar ─── */
 .note-list-scroll {
   scrollbar-width: thin;

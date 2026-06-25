@@ -16,6 +16,8 @@ export interface Note {
   date: string
   tags: NoteTag[]
   inInbox?: boolean
+  /** Rich-text HTML body, loaded from the database */
+  content?: string
 }
 
 interface NoteListPanelProps {
