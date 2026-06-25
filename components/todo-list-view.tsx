@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import { Plus, Star, Inbox, CalendarDays, Layers, Archive, Check, X, ChevronDown } from "lucide-react"
-import { TodoTaskRow } from "./todo-task-row"
+import { TodoTaskRow, type TaskMoveTarget } from "./todo-task-row"
 import type { Task, Project, SectionId } from "@/lib/todos"
 import type { TodoSelection } from "./todo-nav-panel"
 import {
@@ -23,6 +23,8 @@ interface TodoListViewProps {
   onUpdateTitle: (id: string, title: string) => void
   onDeleteTask: (id: string) => void
   onUpdateDue: (id: string, due: string | null) => void
+  onMoveTask: (id: string, target: TaskMoveTarget) => void
+  onDuplicateTask: (id: string) => void
 }
 
 export interface NewTaskInput {
@@ -50,6 +52,8 @@ export function TodoListView({
   onUpdateTitle,
   onDeleteTask,
   onUpdateDue,
+  onMoveTask,
+  onDuplicateTask,
 }: TodoListViewProps) {
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
@@ -157,6 +161,8 @@ export function TodoListView({
               onUpdateTitle={onUpdateTitle}
               onDeleteTask={onDeleteTask}
               onUpdateDue={onUpdateDue}
+              onMoveTask={onMoveTask}
+              onDuplicateTask={onDuplicateTask}
             />
           ) : project ? (
             <ProjectTaskList
@@ -167,6 +173,8 @@ export function TodoListView({
               onUpdateTitle={onUpdateTitle}
               onDeleteTask={onDeleteTask}
               onUpdateDue={onUpdateDue}
+              onMoveTask={onMoveTask}
+              onDuplicateTask={onDuplicateTask}
             />
           ) : (
             <div className="flex flex-col">
@@ -179,6 +187,8 @@ export function TodoListView({
                   onUpdateTitle={onUpdateTitle}
                   onDelete={onDeleteTask}
                   onUpdateDue={onUpdateDue}
+                  onMove={onMoveTask}
+                  onDuplicate={onDuplicateTask}
                 />
               ))}
             </div>
@@ -210,6 +220,8 @@ export function TodoListView({
                       onToggleSubtask={onToggleSubtask}
                       onUpdateTitle={onUpdateTitle}
                       onDelete={onDeleteTask}
+                      onMove={onMoveTask}
+                      onDuplicate={onDuplicateTask}
                     />
                   ))}
                 </div>
@@ -256,6 +268,8 @@ function UpcomingGroups({
   onUpdateTitle,
   onDeleteTask,
   onUpdateDue,
+  onMoveTask,
+  onDuplicateTask,
 }: {
   tasks: Task[]
   onToggleTask: (id: string) => void
@@ -263,6 +277,8 @@ function UpcomingGroups({
   onUpdateTitle: (id: string, title: string) => void
   onDeleteTask: (id: string) => void
   onUpdateDue: (id: string, due: string | null) => void
+  onMoveTask: (id: string, target: TaskMoveTarget) => void
+  onDuplicateTask: (id: string) => void
 }) {
   const groups = useMemo(() => {
     const sorted = [...tasks].sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""))
@@ -293,6 +309,8 @@ function UpcomingGroups({
                 onUpdateTitle={onUpdateTitle}
                 onDelete={onDeleteTask}
                 onUpdateDue={onUpdateDue}
+                onMove={onMoveTask}
+                onDuplicate={onDuplicateTask}
               />
             ))}
           </div>
@@ -311,6 +329,8 @@ function ProjectTaskList({
   onUpdateTitle,
   onDeleteTask,
   onUpdateDue,
+  onMoveTask,
+  onDuplicateTask,
 }: {
   project: Project
   tasks: Task[]
@@ -319,6 +339,8 @@ function ProjectTaskList({
   onUpdateTitle: (id: string, title: string) => void
   onDeleteTask: (id: string) => void
   onUpdateDue: (id: string, due: string | null) => void
+  onMoveTask: (id: string, target: TaskMoveTarget) => void
+  onDuplicateTask: (id: string) => void
 }) {
   // Build an interleaved list of headings + tasks ordered by `order`
   const items = useMemo(() => {
@@ -357,6 +379,8 @@ function ProjectTaskList({
             onUpdateTitle={onUpdateTitle}
             onDelete={onDeleteTask}
             onUpdateDue={onUpdateDue}
+            onMove={onMoveTask}
+            onDuplicate={onDuplicateTask}
           />
         )
       )}

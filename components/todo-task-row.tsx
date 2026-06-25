@@ -1,9 +1,12 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Check, ChevronRight, Calendar, X } from "lucide-react"
+import { Check, ChevronRight, Calendar, X, Circle, CircleCheck, Star, Layers, Archive, Copy, Trash2 } from "lucide-react"
 import type { Task } from "@/lib/todos"
 import { formatDueLabel, isOverdue, isToday } from "@/lib/todos"
+import { ContextMenu, type ContextMenuItem } from "@/components/context-menu"
+
+export type TaskMoveTarget = "today" | "anytime" | "someday"
 
 interface TaskRowProps {
   task: Task
@@ -15,6 +18,8 @@ interface TaskRowProps {
   onUpdateTitle?: (id: string, title: string) => void
   onDelete?: (id: string) => void
   onUpdateDue?: (id: string, due: string | null) => void
+  onMove?: (id: string, target: TaskMoveTarget) => void
+  onDuplicate?: (id: string) => void
 }
 
 const ACCENT = "#007AFF"
@@ -28,12 +33,15 @@ export function TodoTaskRow({
   onUpdateTitle,
   onDelete,
   onUpdateDue,
+  onMove,
+  onDuplicate,
 }: TaskRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(task.title)
   const [dateOpen, setDateOpen] = useState(false)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dateWrapRef = useRef<HTMLDivElement>(null)
 
@@ -79,6 +87,10 @@ export function TodoTaskRow({
       <div
         className="todo-task-row group flex items-start gap-2.5 rounded-lg"
         style={{ padding: "7px 10px" }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setMenu({ x: e.clientX, y: e.clientY })
+        }}
       >
         {/* Checkbox */}
         <button
@@ -379,6 +391,41 @@ export function TodoTaskRow({
           )}
         </div>
       </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          ariaLabel="Task actions"
+          onClose={() => setMenu(null)}
+          items={buildItems()}
+        />
+      )}
     </div>
   )
+
+  function buildItems(): ContextMenuItem[] {
+    const items: ContextMenuItem[] = [
+      {
+        label: task.done ? "Mark as incomplete" : "Mark as complete",
+        icon: task.done ? Circle : CircleCheck,
+        onSelect: () => onToggle(task.id),
+      },
+    ]
+    if (onMove) {
+      items.push({ type: "separator" })
+      items.push({ label: "Move to Today", icon: Star, onSelect: () => onMove(task.id, "today") })
+      items.push({ label: "Move to Anytime", icon: Layers, onSelect: () => onMove(task.id, "anytime") })
+      items.push({ label: "Move to Someday", icon: Archive, onSelect: () => onMove(task.id, "someday") })
+    }
+    if (onDuplicate) {
+      items.push({ type: "separator" })
+      items.push({ label: "Duplicate task", icon: Copy, onSelect: () => onDuplicate(task.id) })
+    }
+    if (onDelete) {
+      items.push({ type: "separator" })
+      items.push({ label: "Delete task", icon: Trash2, danger: true, onSelect: () => onDelete(task.id) })
+    }
+    return items
+  }
 }

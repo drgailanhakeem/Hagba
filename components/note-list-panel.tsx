@@ -1,7 +1,22 @@
 "use client"
 
-import { useEffect, useMemo, useState, useCallback } from "react"
-import { MoreHorizontal, Plus, Search, X, Trash2 } from "lucide-react"
+import { useMemo, useState, useCallback } from "react"
+import {
+  MoreHorizontal,
+  Plus,
+  Search,
+  X,
+  Trash2,
+  FileText,
+  Copy,
+  Star,
+  Inbox,
+  FolderInput,
+  Link2,
+  FileDown,
+} from "lucide-react"
+import { ContextMenu, type ContextMenuItem } from "@/components/context-menu"
+import { downloadNoteAsMarkdown } from "@/lib/export-markdown"
 
 export interface NoteTag {
   label: string
@@ -16,6 +31,8 @@ export interface Note {
   date: string
   tags: NoteTag[]
   inInbox?: boolean
+  /** Whether the note is marked as a favorite */
+  isFavorite?: boolean
   /** Rich-text HTML body, loaded from the database */
   content?: string
 }
@@ -26,6 +43,11 @@ interface NoteListPanelProps {
   onSelect: (id: string) => void
   onNew: () => void
   onDelete?: (id: string) => void
+  onDuplicate?: (id: string) => void
+  /** Toggle a note between Inbox and Notes */
+  onToggleInbox?: (id: string) => void
+  /** Toggle a note's favorite status */
+  onToggleFavorite?: (id: string) => void
   /** When set, only notes with this tag (lowercase) are shown */
   filterTag?: string | null
 }
@@ -77,39 +99,28 @@ export function NoteListPanel({
   onSelect,
   onNew,
   onDelete,
+  onDuplicate,
+  onToggleInbox,
+  onToggleFavorite,
   filterTag = null,
 }: NoteListPanelProps) {
   const [query, setQuery] = useState("")
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const handleClear = useCallback(() => setQuery(""), [])
 
-  // Close the context menu on any outside interaction / escape.
-  // Listeners are attached on the next tick so the same right-click that opened
-  // the menu can't immediately dismiss it.
-  useEffect(() => {
-    if (!menu) return
-    function close() {
-      setMenu(null)
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMenu(null)
-    }
-    const id = setTimeout(() => {
-      window.addEventListener("mousedown", close)
-      window.addEventListener("scroll", close, true)
-      window.addEventListener("keydown", onKey)
-    }, 0)
-    return () => {
-      clearTimeout(id)
-      window.removeEventListener("mousedown", close)
-      window.removeEventListener("scroll", close, true)
-      window.removeEventListener("keydown", onKey)
-    }
-  }, [menu])
+  // Copy a shareable deep link to the note to the clipboard.
+  const copyNoteLink = useCallback((id: string) => {
+    const url = `${window.location.origin}${window.location.pathname}?note=${id}`
+    navigator.clipboard?.writeText(url).catch(() => {})
+    setCopiedId(id)
+    window.setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 1600)
+  }, [])
 
   const confirmNote = confirmId ? notes.find((n) => n.id === confirmId) ?? null : null
+  const menuNote = menu ? notes.find((n) => n.id === menu.id) ?? null : null
 
   // Filter by tag first, then by search query
   const visibleNotes = useMemo(() => {
@@ -135,6 +146,43 @@ export function NoteListPanel({
   }, [notes, filterTag, query])
 
   const trimmedQuery = query.trim()
+
+  function buildNoteMenuItems(note: Note): ContextMenuItem[] {
+    const items: ContextMenuItem[] = [
+      { label: "Open note", icon: FileText, onSelect: () => onSelect(note.id) },
+    ]
+    if (onDuplicate) items.push({ label: "Duplicate note", icon: Copy, onSelect: () => onDuplicate(note.id) })
+    if (onToggleInbox) {
+      items.push({
+        label: note.inInbox ? "Move to Notes" : "Move to Inbox",
+        icon: note.inInbox ? FolderInput : Inbox,
+        onSelect: () => onToggleInbox(note.id),
+      })
+    }
+    if (onToggleFavorite) {
+      items.push({
+        label: note.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+        icon: Star,
+        onSelect: () => onToggleFavorite(note.id),
+      })
+    }
+    items.push({ type: "separator" })
+    items.push({
+      label: copiedId === note.id ? "Link copied!" : "Copy note link",
+      icon: Link2,
+      onSelect: () => copyNoteLink(note.id),
+    })
+    items.push({
+      label: "Export as Markdown",
+      icon: FileDown,
+      onSelect: () => downloadNoteAsMarkdown(note.title, note.content ?? ""),
+    })
+    if (onDelete) {
+      items.push({ type: "separator" })
+      items.push({ label: "Delete note", icon: Trash2, danger: true, onSelect: () => setConfirmId(note.id) })
+    }
+    return items
+  }
 
   return (
     <aside
@@ -239,7 +287,6 @@ export function NoteListPanel({
               <button
                 onClick={() => onSelect(note.id)}
                 onContextMenu={(e) => {
-                  if (!onDelete) return
                   e.preventDefault()
                   setMenu({ id: note.id, x: e.clientX, y: e.clientY })
                 }}
@@ -252,10 +299,20 @@ export function NoteListPanel({
               >
                 {/* Title */}
                 <p
-                  className="font-medium truncate"
+                  className="font-medium truncate flex items-center gap-1.5"
                   style={{ fontSize: 14, color: isActive ? "#1C1B19" : "#2C2A27", marginBottom: 3 }}
                 >
-                  <HighlightText text={note.title} query={trimmedQuery} />
+                  {note.isFavorite && (
+                    <Star
+                      size={12}
+                      strokeWidth={2}
+                      aria-label="Favorite"
+                      style={{ color: "#E8A33D", fill: "#E8A33D", flexShrink: 0 }}
+                    />
+                  )}
+                  <span className="truncate">
+                    <HighlightText text={note.title} query={trimmedQuery} />
+                  </span>
                 </p>
 
                 {/* Preview text */}
@@ -297,48 +354,14 @@ export function NoteListPanel({
       </ul>
 
       {/* Right-click context menu */}
-      {menu && onDelete && (
-        <div
-          role="menu"
-          aria-label="Note actions"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            top: menu.y,
-            left: menu.x,
-            zIndex: 9998,
-            background: "#FFFFFF",
-            border: "1px solid #E2DDD5",
-            borderRadius: 8,
-            boxShadow: "0 8px 28px rgba(28,27,25,0.18)",
-            padding: 4,
-            minWidth: 150,
-            animation: "fadeIn 0.1s ease",
-          }}
-        >
-          <button
-            role="menuitem"
-            onClick={() => {
-              setConfirmId(menu.id)
-              setMenu(null)
-            }}
-            className="flex items-center gap-2.5 w-full text-left rounded-md"
-            style={{
-              padding: "7px 10px",
-              fontSize: 13,
-              color: "#C0392B",
-              fontFamily: "system-ui, sans-serif",
-              background: "transparent",
-              cursor: "pointer",
-            }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "#FBECEA")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
-          >
-            <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
-            Delete note
-          </button>
-        </div>
+      {menu && menuNote && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          ariaLabel="Note actions"
+          onClose={() => setMenu(null)}
+          items={buildNoteMenuItems(menuNote)}
+        />
       )}
 
       {/* Delete confirmation */}

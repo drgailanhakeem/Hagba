@@ -9,7 +9,7 @@ import { NoteEditor, type NoteChanges } from "@/components/note-editor"
 import { InboxView } from "@/components/inbox-view"
 import { QuickCaptureModal, type CapturedNote } from "@/components/quick-capture-modal"
 import { TagsPanel } from "@/components/tags-panel"
-import { buildTagRegistry, getTagColor, type TagEntry } from "@/lib/tags"
+import { buildTagRegistry, getTagColor, colorById, type TagEntry } from "@/lib/tags"
 import type { NoteTag } from "@/components/note-list-panel"
 import { TodoNavPanel, type TodoSelection } from "@/components/todo-nav-panel"
 import { TodoListView, type NewTaskInput } from "@/components/todo-list-view"
@@ -32,6 +32,8 @@ import {
   updateTask,
   deleteTask,
   insertProject,
+  updateProject,
+  deleteProject,
   seedInitialData,
   fetchUserSettings,
   upsertUserSettings,
@@ -394,6 +396,46 @@ export default function Page() {
     )
   }, [supabase])
 
+  // Move a task between Today / Anytime / Someday via the context menu
+  const handleMoveTask = useCallback((id: string, target: "today" | "anytime" | "someday") => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t
+        let changes: Partial<Task>
+        if (target === "today") changes = { pinnedToday: true, someday: false, due: null }
+        else if (target === "someday") changes = { someday: true, pinnedToday: false, due: null }
+        else changes = { someday: false, pinnedToday: false, due: null } // anytime
+        updateTask(supabase, id, changes).catch((e) =>
+          console.error("[v0] move task failed:", e)
+        )
+        return { ...t, ...changes }
+      })
+    )
+  }, [supabase])
+
+  // Duplicate a task
+  const handleDuplicateTask = useCallback((id: string) => {
+    const userId = userIdRef.current
+    if (!userId) return
+    const original = tasks.find((t) => t.id === id)
+    if (!original) return
+    const copy: Task = {
+      ...original,
+      id: `temp-${Date.now()}`,
+      done: false,
+      completedAt: null,
+      order: tasks.length,
+      subtasks: original.subtasks.map((s) => ({ ...s })),
+    }
+    setTasks((prev) => [...prev, copy])
+    insertTask(supabase, userId, copy)
+      .then((created) => setTasks((prev) => prev.map((t) => (t.id === copy.id ? created : t))))
+      .catch((e) => {
+        console.error("[v0] duplicate task failed:", e)
+        setTasks((prev) => prev.filter((t) => t.id !== copy.id))
+      })
+  }, [tasks, supabase])
+
   // Change (or clear) a task's due date
   const handleUpdateTaskDue = useCallback((id: string, due: string | null) => {
     setTasks((prev) =>
@@ -479,6 +521,34 @@ export default function Page() {
       .catch((e) => console.error("[v0] new project failed:", e))
   }, [supabase])
 
+  // Rename a project
+  const handleRenameProject = useCallback((id: string, name: string) => {
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)))
+    updateProject(supabase, id, { name }).catch((e) =>
+      console.error("[v0] rename project failed:", e)
+    )
+  }, [supabase])
+
+  // Change a project's emoji
+  const handleChangeProjectEmoji = useCallback((id: string, emoji: string) => {
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, emoji } : p)))
+    updateProject(supabase, id, { emoji }).catch((e) =>
+      console.error("[v0] change project emoji failed:", e)
+    )
+  }, [supabase])
+
+  // Delete a project (its tasks are detached, keeping them)
+  const handleDeleteProject = useCallback((id: string) => {
+    setProjects((prev) => prev.filter((p) => p.id !== id))
+    setTasks((prev) => prev.map((t) => (t.projectId === id ? { ...t, projectId: null } : t)))
+    setTodoSelection((sel) =>
+      sel.kind === "project" && sel.id === id ? { kind: "section", id: "today" } : sel
+    )
+    deleteProject(supabase, id).catch((e) =>
+      console.error("[v0] delete project failed:", e)
+    )
+  }, [supabase])
+
   // Derived state
   const inboxNotes = notes.filter((n) => n.inInbox)
   const regularNotes = notes.filter((n) => !n.inInbox)
@@ -546,6 +616,25 @@ export default function Page() {
     )
     if (activeFilterTag === label) setActiveFilterTag(null)
   }, [activeFilterTag, supabase])
+
+  // Change a tag's color across all notes
+  const handleChangeTagColor = useCallback((label: string, colorId: string) => {
+    const color = colorById(colorId)
+    setNotes((prev) =>
+      prev.map((n) => {
+        if (!n.tags.some((t) => t.label.toLowerCase() === label)) return n
+        const tags = n.tags.map((t) =>
+          t.label.toLowerCase() === label
+            ? { ...t, color: color.bgClass, textColor: color.textClass }
+            : t
+        )
+        updateNote(supabase, n.id, { tags }).catch((e) =>
+          console.error("[v0] change tag color failed:", e)
+        )
+        return { ...n, tags }
+      })
+    )
+  }, [supabase])
 
   // Cmd+K shortcut
   useEffect(() => {
@@ -645,6 +734,70 @@ export default function Page() {
       console.error("[v0] move to notes failed:", e)
     )
   }, [supabase])
+
+  // Toggle a note between Inbox and Notes
+  const handleToggleNoteInbox = useCallback((id: string) => {
+    setNotes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n
+        const inInbox = !n.inInbox
+        updateNote(supabase, id, { isInbox: inInbox }).catch((e) =>
+          console.error("[v0] toggle inbox failed:", e)
+        )
+        return { ...n, inInbox }
+      })
+    )
+  }, [supabase])
+
+  // Toggle a note's favorite status
+  const handleToggleFavorite = useCallback((id: string) => {
+    setNotes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n
+        const isFavorite = !n.isFavorite
+        updateNote(supabase, id, { isFavorite }).catch((e) =>
+          console.error("[v0] toggle favorite failed:", e)
+        )
+        return { ...n, isFavorite }
+      })
+    )
+  }, [supabase])
+
+  // Duplicate a note (creates a "Copy of …" copy)
+  const handleDuplicateNote = useCallback((id: string) => {
+    const userId = userIdRef.current
+    if (!userId) return
+    const original = notes.find((n) => n.id === id)
+    if (!original) return
+    const tempId = `temp-${Date.now()}`
+    const title = `Copy of ${original.title || "Untitled"}`
+    const draft: Note = {
+      id: tempId,
+      title,
+      preview: original.preview,
+      date: "Just now",
+      tags: original.tags.map((t) => ({ ...t })),
+      inInbox: original.inInbox,
+      isFavorite: false,
+      content: original.content ?? "<p></p>",
+    }
+    setNotes((prev) => [draft, ...prev])
+    insertNote(supabase, userId, {
+      title,
+      content: original.content ?? "<p></p>",
+      preview: original.preview,
+      tags: original.tags,
+      isInbox: original.inInbox,
+    })
+      .then((created) => {
+        setNotes((prev) => prev.map((n) => (n.id === tempId ? created : n)))
+        if (!created.inInbox) setActiveNoteId(created.id)
+      })
+      .catch((e) => {
+        console.error("[v0] duplicate note failed:", e)
+        setNotes((prev) => prev.filter((n) => n.id !== tempId))
+      })
+  }, [notes, supabase])
 
   // Delete from inbox
   const handleDeleteInbox = useCallback((id: string) => {
@@ -751,6 +904,9 @@ export default function Page() {
             selection={todoSelection}
             onSelect={setTodoSelection}
             onNewProject={handleNewProject}
+            onRenameProject={handleRenameProject}
+            onChangeProjectEmoji={handleChangeProjectEmoji}
+            onDeleteProject={handleDeleteProject}
           />
           <TodoListView
             selection={todoSelection}
@@ -762,6 +918,8 @@ export default function Page() {
             onUpdateTitle={handleUpdateTaskTitle}
             onDeleteTask={handleDeleteTask}
             onUpdateDue={handleUpdateTaskDue}
+            onMoveTask={handleMoveTask}
+            onDuplicateTask={handleDuplicateTask}
           />
         </>
       ) : (
@@ -785,6 +943,7 @@ export default function Page() {
           }}
           onRenameTag={handleRenameTag}
           onDeleteTag={handleDeleteTag}
+          onChangeColor={handleChangeTagColor}
         />
       ) : (
         <NoteListPanel
@@ -793,6 +952,9 @@ export default function Page() {
           onSelect={setActiveNoteId}
           onNew={handleNewNote}
           onDelete={handleDeleteInbox}
+          onDuplicate={handleDuplicateNote}
+          onToggleInbox={handleToggleNoteInbox}
+          onToggleFavorite={handleToggleFavorite}
           filterTag={activeFilterTag}
         />
       )}
