@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { Share2, MoreHorizontal, Tag } from "lucide-react"
 import type { Note } from "./note-list-panel"
 import { RichEditor, type RichEditorRef } from "./editor/rich-editor"
 import { PomodoroTimer, type TimerSettings } from "./pomodoro-timer"
+import { EditorToolbar } from "./editor/editor-toolbar"
 
 import type { TagEntry } from "@/lib/tags"
 
@@ -16,6 +16,13 @@ interface NoteEditorProps {
   initialContent?: string
   existingTags?: TagEntry[]
   onTagCreated?: (label: string) => void
+  /** Toggle a tag on/off for the active note */
+  onToggleTag?: (noteId: string, label: string) => void
+  onDuplicate?: (id: string) => void
+  onToggleInbox?: (id: string) => void
+  onToggleFavorite?: (id: string) => void
+  onDelete?: (id: string) => void
+  onSetPublic?: (id: string, isPublic: boolean) => void
   timerSettings?: TimerSettings
 }
 
@@ -35,7 +42,20 @@ function formatLastSaved(date: Date): string {
 // Map note IDs to their HTML content for session persistence
 const noteContentMap = new Map<string, string>()
 
-export function NoteEditor({ note, onUpdate, initialContent: seedContent, existingTags = [], onTagCreated, timerSettings }: NoteEditorProps) {
+export function NoteEditor({
+  note,
+  onUpdate,
+  initialContent: seedContent,
+  existingTags = [],
+  onTagCreated,
+  onToggleTag,
+  onDuplicate,
+  onToggleInbox,
+  onToggleFavorite,
+  onDelete,
+  onSetPublic,
+  timerSettings,
+}: NoteEditorProps) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [lastSavedLabel, setLastSavedLabel] = useState("")
@@ -252,32 +272,18 @@ export function NoteEditor({ note, onUpdate, initialContent: seedContent, existi
           {/* Divider */}
           <div style={{ width: 1, height: 18, background: "#EAE6E0", flexShrink: 0 }} aria-hidden="true" />
 
-          {/* Tag button */}
-          <button
-            aria-label="Add tag"
-            className="icon-btn flex items-center justify-center w-7 h-7 rounded-lg"
-            style={{ color: "#9A9590" }}
-          >
-            <Tag size={15} strokeWidth={1.75} aria-hidden="true" />
-          </button>
-
-          {/* Share button */}
-          <button
-            aria-label="Share note"
-            className="icon-btn flex items-center justify-center w-7 h-7 rounded-lg"
-            style={{ color: "#9A9590" }}
-          >
-            <Share2 size={15} strokeWidth={1.75} aria-hidden="true" />
-          </button>
-
-          {/* More options */}
-          <button
-            aria-label="More options"
-            className="icon-btn flex items-center justify-center w-7 h-7 rounded-lg"
-            style={{ color: "#9A9590" }}
-          >
-            <MoreHorizontal size={16} strokeWidth={1.75} aria-hidden="true" />
-          </button>
+          {/* Tag / Share / More action buttons */}
+          <EditorToolbar
+            note={note}
+            existingTags={existingTags}
+            onToggleTag={onToggleTag ?? (() => {})}
+            onCreateTag={onTagCreated ?? (() => {})}
+            onDuplicate={onDuplicate ?? (() => {})}
+            onToggleInbox={onToggleInbox ?? (() => {})}
+            onToggleFavorite={onToggleFavorite ?? (() => {})}
+            onDelete={onDelete ?? (() => {})}
+            onSetPublic={onSetPublic ?? (() => {})}
+          />
         </div>
       </header>
 

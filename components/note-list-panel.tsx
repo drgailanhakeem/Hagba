@@ -33,6 +33,8 @@ export interface Note {
   inInbox?: boolean
   /** Whether the note is marked as a favorite */
   isFavorite?: boolean
+  /** Whether the note is publicly shared via a read-only link */
+  isPublic?: boolean
   /** Rich-text HTML body, loaded from the database */
   content?: string
 }

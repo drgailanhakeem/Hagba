@@ -763,6 +763,37 @@ export default function Page() {
     )
   }, [supabase])
 
+  // Toggle a tag on/off for a specific note (used by the editor tag dropdown)
+  const handleToggleNoteTag = useCallback((noteId: string, label: string) => {
+    const color = getTagColor(label)
+    setNotes((prev) =>
+      prev.map((n) => {
+        if (n.id !== noteId) return n
+        const has = n.tags.some((t) => t.label.toLowerCase() === label.toLowerCase())
+        const tags = has
+          ? n.tags.filter((t) => t.label.toLowerCase() !== label.toLowerCase())
+          : [...n.tags, { label, color: color.bgClass, textColor: color.textClass }]
+        updateNote(supabase, noteId, { tags }).catch((e) =>
+          console.error("[v0] toggle tag failed:", e)
+        )
+        return { ...n, tags }
+      })
+    )
+  }, [supabase])
+
+  // Toggle a note's public share status
+  const handleSetNotePublic = useCallback((id: string, isPublic: boolean) => {
+    setNotes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n
+        updateNote(supabase, id, { isPublic }).catch((e) =>
+          console.error("[v0] set public failed:", e)
+        )
+        return { ...n, isPublic }
+      })
+    )
+  }, [supabase])
+
   // Duplicate a note (creates a "Copy of …" copy)
   const handleDuplicateNote = useCallback((id: string) => {
     const userId = userIdRef.current
@@ -966,6 +997,12 @@ export default function Page() {
         initialContent={activeNote?.content ?? undefined}
         existingTags={existingTagEntries}
         onTagCreated={handleTagCreated}
+        onToggleTag={handleToggleNoteTag}
+        onDuplicate={handleDuplicateNote}
+        onToggleInbox={handleToggleNoteInbox}
+        onToggleFavorite={handleToggleFavorite}
+        onDelete={handleDeleteInbox}
+        onSetPublic={handleSetNotePublic}
         timerSettings={timerSettings}
       />
 
