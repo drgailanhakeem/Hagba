@@ -93,76 +93,94 @@
   margin: 0 !important;
 }
 
-/* ─── Task list ─── */
+/* ─── Task list ─────────────────────────────────────────────────
+   Tiptap 3 DOM shape:
+     ul[data-type="taskList"]
+       li.task-item[data-checked="false|true"]
+         label[contenteditable="false"]
+           input[type="checkbox"]   ← hidden; span is the visual
+           span                     ← custom circle/check
+         div
+           p
+──────────────────────────────────────────────────────────────── */
 .bear-editor ul[data-type="taskList"] {
   list-style: none !important;
   padding-left: 0 !important;
   margin: 0.3em 0 0.6em !important;
 }
 
-.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] {
+.bear-editor ul[data-type="taskList"] li.task-item {
   display: flex !important;
   align-items: flex-start !important;
   gap: 10px !important;
-  margin: 0.25em 0 !important;
+  margin: 0.3em 0 !important;
 }
 
-/* The label wrapping the checkbox */
-.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > label {
+/* Label holds the hidden checkbox + visual span */
+.bear-editor ul[data-type="taskList"] li.task-item > label {
   display: flex !important;
   align-items: center !important;
   flex-shrink: 0 !important;
   margin-top: 4px !important;
   cursor: pointer !important;
   user-select: none !important;
+  position: relative !important;
 }
 
-/* Custom circular checkbox */
-.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"] {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  width: 16px !important;
-  height: 16px !important;
+/* Hide the native checkbox completely */
+.bear-editor ul[data-type="taskList"] li.task-item > label input[type="checkbox"] {
+  position: absolute !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Span is the visible circle */
+.bear-editor ul[data-type="taskList"] li.task-item > label > span {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 17px !important;
+  height: 17px !important;
   border: 1.5px solid #B8B4AC !important;
   border-radius: 50% !important;
-  cursor: pointer !important;
-  position: relative !important;
   background: transparent !important;
   transition: border-color 0.15s, background 0.15s !important;
   flex-shrink: 0 !important;
-  margin: 0 !important;
 }
 
-.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"]:checked {
+/* Checked state — green fill */
+.bear-editor ul[data-type="taskList"] li.task-item[data-checked="true"] > label > span {
   background: #3DAA6E !important;
   border-color: #3DAA6E !important;
 }
 
-.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"]:checked::after {
+/* Checkmark inside the span */
+.bear-editor ul[data-type="taskList"] li.task-item[data-checked="true"] > label > span::after {
   content: "" !important;
-  position: absolute !important;
-  top: 1.5px !important;
-  left: 4.5px !important;
+  display: block !important;
   width: 5px !important;
   height: 9px !important;
   border: 2px solid #fff !important;
   border-top: none !important;
   border-left: none !important;
-  transform: rotate(45deg) !important;
+  transform: rotate(45deg) translateY(-1px) !important;
 }
 
-/* Completed task text — strikethrough */
-.bear-editor ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div,
-.bear-editor ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div p {
+/* Completed task text — strikethrough and muted */
+.bear-editor ul[data-type="taskList"] li.task-item[data-checked="true"] > div,
+.bear-editor ul[data-type="taskList"] li.task-item[data-checked="true"] > div p {
   color: #B8B4AC !important;
   text-decoration: line-through !important;
   text-decoration-color: #C4C0B8 !important;
 }
 
-.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > div {
+.bear-editor ul[data-type="taskList"] li.task-item > div {
   flex: 1 !important;
 }
-.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > div > p {
+.bear-editor ul[data-type="taskList"] li.task-item > div > p {
   margin: 0 !important;
 }
 
