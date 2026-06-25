@@ -217,3 +217,33 @@
 .bear-editor .code-block-wrapper {
   margin: 1.2em 0 !important;
 }
+
+/* ─── Inline #hashtag pills ────────────────────────────────────
+   data-hash-tag marks rendered by the HashTagMark Tiptap mark.
+   One rule per color-id from TAG_COLORS in lib/tags.ts.
+────────────────────────────────────────────────────────────── */
+.bear-editor span[data-hash-tag] {
+  display: inline-block !important;
+  border-radius: 4px !important;
+  padding: 0 4px !important;
+  font-size: 0.88em !important;
+  font-family: system-ui, sans-serif !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  cursor: default !important;
+  transition: opacity 0.1s !important;
+  vertical-align: baseline !important;
+}
+.bear-editor span[data-hash-tag]:hover {
+  opacity: 0.8 !important;
+}
+
+/* Per-color variants keyed to TagColor.id */
+.bear-editor span[data-hash-tag][data-color="amber"]   { background: #FEF3C7 !important; color: #92400E !important; }
+.bear-editor span[data-hash-tag][data-color="sky"]     { background: #E0F2FE !important; color: #0C4A6E !important; }
+.bear-editor span[data-hash-tag][data-color="emerald"] { background: #D1FAE5 !important; color: #065F46 !important; }
+.bear-editor span[data-hash-tag][data-color="rose"]    { background: #FFE4E6 !important; color: #9F1239 !important; }
+.bear-editor span[data-hash-tag][data-color="violet"]  { background: #EDE9FE !important; color: #4C1D95 !important; }
+.bear-editor span[data-hash-tag][data-color="orange"]  { background: #FFEDD5 !important; color: #7C2D12 !important; }
+.bear-editor span[data-hash-tag][data-color="teal"]    { background: #CCFBF1 !important; color: #134E4A !important; }
+.bear-editor span[data-hash-tag][data-color="pink"]    { background: #FCE7F3 !important; color: #831843 !important; }

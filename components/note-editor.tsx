@@ -6,10 +6,14 @@ import type { Note } from "./note-list-panel"
 import { RichEditor, type RichEditorRef } from "./editor/rich-editor"
 import { PomodoroTimer } from "./pomodoro-timer"
 
+import type { TagEntry } from "@/lib/tags"
+
 interface NoteEditorProps {
   note: Note | null
   onUpdate: (id: string, changes: Partial<Pick<Note, "title" | "preview">>) => void
   initialContent?: string
+  existingTags?: TagEntry[]
+  onTagCreated?: (label: string) => void
 }
 
 type SaveStatus = "idle" | "saving" | "saved"
@@ -28,7 +32,7 @@ function formatLastSaved(date: Date): string {
 // Map note IDs to their HTML content for session persistence
 const noteContentMap = new Map<string, string>()
 
-export function NoteEditor({ note, onUpdate, initialContent: seedContent }: NoteEditorProps) {
+export function NoteEditor({ note, onUpdate, initialContent: seedContent, existingTags = [], onTagCreated }: NoteEditorProps) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [lastSavedLabel, setLastSavedLabel] = useState("")
@@ -300,7 +304,9 @@ export function NoteEditor({ note, onUpdate, initialContent: seedContent }: Note
             ref={editorRef}
             initialContent={initialContent}
             onUpdate={handleEditorUpdate}
-            placeholder="Start writing… or type / for commands"
+            placeholder="Start writing… or type # for tags, / for commands"
+            existingTags={existingTags}
+            onTagCreated={onTagCreated}
           />
         </div>
       </div>

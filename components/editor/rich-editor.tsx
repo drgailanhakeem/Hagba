@@ -9,9 +9,11 @@ import TaskItem from "@tiptap/extension-task-item"
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
 import { createLowlight, common } from "lowlight"
 import { ReactNodeViewRenderer } from "@tiptap/react"
-import { useCallback, useEffect, useImperativeHandle, forwardRef } from "react"
+import { useCallback, useEffect, useImperativeHandle, forwardRef, useMemo } from "react"
 import { CodeBlockView } from "./code-block-view"
 import { SlashCommandExtension } from "./slash-command"
+import { HashTagMark, buildHashTagExtension } from "./hash-tag-extension"
+import type { TagEntry } from "@/lib/tags"
 
 const lowlight = createLowlight(common)
 
@@ -24,10 +26,19 @@ interface RichEditorProps {
   initialContent?: string
   onUpdate?: (html: string, text: string) => void
   placeholder?: string
+  existingTags?: TagEntry[]
+  onTagCreated?: (label: string) => void
 }
 
 export const RichEditor = forwardRef<RichEditorRef, RichEditorProps>(
-  ({ initialContent, onUpdate, placeholder = "Start writing… or type / for commands" }, ref) => {
+  ({ initialContent, onUpdate, placeholder = "Start writing… or type / for commands", existingTags = [], onTagCreated }, ref) => {
+    const hashTagExtension = useMemo(
+      () => buildHashTagExtension(existingTags, onTagCreated ?? (() => {})),
+      // Rebuild only when tag list length changes to avoid constant remounts
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [existingTags.length]
+    )
+
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
@@ -51,6 +62,8 @@ export const RichEditor = forwardRef<RichEditorRef, RichEditorProps>(
           },
         }).configure({ lowlight }),
         SlashCommandExtension,
+        HashTagMark,
+        hashTagExtension,
       ],
       content: initialContent || "<p></p>",
       editorProps: {

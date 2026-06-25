@@ -1,12 +1,15 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { Plus } from "lucide-react"
 import { IconSidebar } from "@/components/icon-sidebar"
 import { NoteListPanel, type Note } from "@/components/note-list-panel"
 import { NoteEditor } from "@/components/note-editor"
 import { InboxView } from "@/components/inbox-view"
 import { QuickCaptureModal, type CapturedNote } from "@/components/quick-capture-modal"
+import { TagsPanel } from "@/components/tags-panel"
+import { buildTagRegistry, colorById, getTagColor, type TagEntry } from "@/lib/tags"
+import type { NoteTag } from "@/components/note-list-panel"
 
 // ── Rich HTML seed content per note ────────────────────────────────────────
 export const NOTE_CONTENT: Record<string, string> = {
@@ -145,11 +148,63 @@ export default function Page() {
   const [activeNoteId, setActiveNoteId] = useState<string>(INITIAL_NOTES[0].id)
   const [activeNav, setActiveNav] = useState<"inbox" | "notes" | "tags" | "search">("notes")
   const [captureOpen, setCaptureOpen] = useState(false)
+  const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null)
 
   // Derived state
   const inboxNotes = notes.filter((n) => n.inInbox)
   const regularNotes = notes.filter((n) => !n.inInbox)
   const activeNote = notes.find((n) => n.id === activeNoteId) ?? null
+
+  // Build tag registry from all notes (both regular and inbox)
+  const tagRegistry = useMemo(() => buildTagRegistry(notes), [notes])
+  const tagList = useMemo(() => Array.from(tagRegistry.values()), [tagRegistry])
+
+  // Existing tags for the hash-tag autocomplete
+  const existingTagEntries: TagEntry[] = useMemo(() => tagList, [tagList])
+
+  // Called when the editor commits a new #tag
+  const handleTagCreated = useCallback((label: string) => {
+    const color = getTagColor(label)
+    const noteTag: NoteTag = {
+      label,
+      color: color.bgClass,
+      textColor: color.textClass,
+    }
+    setNotes((prev) =>
+      prev.map((n) => {
+        if (n.id !== activeNoteId) return n
+        if (n.tags.some((t) => t.label.toLowerCase() === label.toLowerCase())) return n
+        return { ...n, tags: [...n.tags, noteTag] }
+      })
+    )
+  }, [activeNoteId])
+
+  // Rename a tag across all notes
+  const handleRenameTag = useCallback((oldLabel: string, newLabel: string) => {
+    const color = getTagColor(newLabel)
+    setNotes((prev) =>
+      prev.map((n) => ({
+        ...n,
+        tags: n.tags.map((t) =>
+          t.label.toLowerCase() === oldLabel
+            ? { label: newLabel, color: color.bgClass, textColor: color.textClass }
+            : t
+        ),
+      }))
+    )
+    if (activeFilterTag === oldLabel) setActiveFilterTag(newLabel.toLowerCase())
+  }, [activeFilterTag])
+
+  // Delete a tag from all notes
+  const handleDeleteTag = useCallback((label: string) => {
+    setNotes((prev) =>
+      prev.map((n) => ({
+        ...n,
+        tags: n.tags.filter((t) => t.label.toLowerCase() !== label),
+      }))
+    )
+    if (activeFilterTag === label) setActiveFilterTag(null)
+  }, [activeFilterTag])
 
   // Cmd+K shortcut
   useEffect(() => {
@@ -230,7 +285,7 @@ export default function Page() {
         inboxCount={inboxNotes.length}
       />
 
-      {/* Column 2 — Inbox or Note list */}
+      {/* Column 2 — Inbox, Tags panel, or Note list */}
       {activeNav === "inbox" ? (
         <InboxView
           notes={inboxNotes}
@@ -238,12 +293,25 @@ export default function Page() {
           onDelete={handleDeleteInbox}
           onOpen={handleOpenInboxNote}
         />
+      ) : activeNav === "tags" ? (
+        <TagsPanel
+          tags={tagList}
+          activeTag={activeFilterTag}
+          onSelectTag={(tag) => {
+            setActiveFilterTag(tag)
+            // Switch to Notes view to show filtered results
+            setActiveNav("notes")
+          }}
+          onRenameTag={handleRenameTag}
+          onDeleteTag={handleDeleteTag}
+        />
       ) : (
         <NoteListPanel
           notes={regularNotes}
           activeId={activeNoteId}
           onSelect={setActiveNoteId}
           onNew={handleNewNote}
+          filterTag={activeFilterTag}
         />
       )}
 
@@ -252,6 +320,8 @@ export default function Page() {
         note={activeNote}
         onUpdate={handleUpdate}
         initialContent={activeNote ? (NOTE_CONTENT[activeNote.id] ?? undefined) : undefined}
+        existingTags={existingTagEntries}
+        onTagCreated={handleTagCreated}
       />
 
       {/* Floating quick-capture button */}
