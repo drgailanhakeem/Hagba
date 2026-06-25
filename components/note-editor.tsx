@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { Share2, MoreHorizontal, Tag } from "lucide-react"
 import type { Note } from "./note-list-panel"
 import { RichEditor, type RichEditorRef } from "./editor/rich-editor"
+import { PomodoroTimer } from "./pomodoro-timer"
 
 interface NoteEditorProps {
   note: Note | null
@@ -236,6 +237,12 @@ export function NoteEditor({ note, onUpdate, initialContent: seedContent }: Note
               {lastSavedLabel}
             </span>
           )}
+
+          {/* Pomodoro timer */}
+          <PomodoroTimer noteTitle={titleValue || note.title} />
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 18, background: "#EAE6E0", flexShrink: 0 }} aria-hidden="true" />
 
           {/* Tag button */}
           <button
