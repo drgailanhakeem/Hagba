@@ -85,7 +85,9 @@ export function NoteListPanel({
 
   const handleClear = useCallback(() => setQuery(""), [])
 
-  // Close the context menu on any outside click / escape
+  // Close the context menu on any outside interaction / escape.
+  // Listeners are attached on the next tick so the same right-click that opened
+  // the menu can't immediately dismiss it.
   useEffect(() => {
     if (!menu) return
     function close() {
@@ -94,10 +96,15 @@ export function NoteListPanel({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setMenu(null)
     }
-    window.addEventListener("click", close)
-    window.addEventListener("keydown", onKey)
+    const id = setTimeout(() => {
+      window.addEventListener("mousedown", close)
+      window.addEventListener("scroll", close, true)
+      window.addEventListener("keydown", onKey)
+    }, 0)
     return () => {
-      window.removeEventListener("click", close)
+      clearTimeout(id)
+      window.removeEventListener("mousedown", close)
+      window.removeEventListener("scroll", close, true)
       window.removeEventListener("keydown", onKey)
     }
   }, [menu])
@@ -294,6 +301,7 @@ export function NoteListPanel({
         <div
           role="menu"
           aria-label="Note actions"
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           style={{
             position: "fixed",
