@@ -1,25 +1,39 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
 import { IconSidebar } from "@/components/icon-sidebar"
 import { NoteListPanel, type Note } from "@/components/note-list-panel"
-import { NoteEditor } from "@/components/note-editor"
+import { NoteEditor, type NoteChanges } from "@/components/note-editor"
 import { InboxView } from "@/components/inbox-view"
 import { QuickCaptureModal, type CapturedNote } from "@/components/quick-capture-modal"
 import { TagsPanel } from "@/components/tags-panel"
-import { buildTagRegistry, colorById, getTagColor, type TagEntry } from "@/lib/tags"
+import { buildTagRegistry, getTagColor, type TagEntry } from "@/lib/tags"
 import type { NoteTag } from "@/components/note-list-panel"
 import { TodoNavPanel, type TodoSelection } from "@/components/todo-nav-panel"
 import { TodoListView, type NewTaskInput } from "@/components/todo-list-view"
 import {
   INITIAL_TASKS,
   INITIAL_PROJECTS,
-  todayISO,
   type Task,
   type Project,
 } from "@/lib/todos"
 import { SettingsModal, DEFAULT_SETTINGS, type Settings } from "@/components/settings-modal"
+import { createClient } from "@/lib/supabase/client"
+import {
+  fetchNotes,
+  fetchTasks,
+  fetchProjects,
+  insertNote,
+  updateNote,
+  deleteNote,
+  insertTask,
+  updateTask,
+  deleteTask,
+  insertProject,
+  seedInitialData,
+} from "@/lib/db"
 
 // ── Rich HTML seed content per note ────────────────────────────────────────
 export const NOTE_CONTENT: Record<string, string> = {
@@ -154,11 +168,87 @@ const INITIAL_NOTES: Note[] = [
 
 // ── Page ───────────────────────────────────────────────────────────────────
 export default function Page() {
-  const [notes, setNotes] = useState<Note[]>(INITIAL_NOTES)
-  const [activeNoteId, setActiveNoteId] = useState<string>(INITIAL_NOTES[0].id)
+  const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
+  const userIdRef = useRef<string | null>(null)
+
+  const [notes, setNotes] = useState<Note[]>([])
+  const [activeNoteId, setActiveNoteId] = useState<string>("")
   const [activeNav, setActiveNav] = useState<"inbox" | "notes" | "todos" | "tags" | "search">("notes")
   const [captureOpen, setCaptureOpen] = useState(false)
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // ── Load the signed-in user's data from Supabase (seed on first run) ──
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.replace("/auth")
+        return
+      }
+      userIdRef.current = user.id
+
+      try {
+        let [loadedNotes, loadedTasks, loadedProjects] = await Promise.all([
+          fetchNotes(supabase),
+          fetchTasks(supabase),
+          fetchProjects(supabase),
+        ])
+
+        // First run: nothing stored yet → seed the demo content.
+        if (loadedNotes.length === 0 && loadedTasks.length === 0 && loadedProjects.length === 0) {
+          const seeded = await seedInitialData(supabase, user.id, {
+            notes: INITIAL_NOTES.map((n) => ({
+              note: {
+                title: n.title,
+                preview: n.preview,
+                tags: n.tags,
+                inInbox: n.inInbox,
+              },
+              content: NOTE_CONTENT[n.id] ?? (n.preview ? `<p>${n.preview}</p>` : "<p></p>"),
+            })),
+            projects: INITIAL_PROJECTS.map((p) => ({
+              seedId: p.id,
+              name: p.name,
+              emoji: p.emoji,
+              area: p.area,
+              headings: p.headings,
+            })),
+            tasks: INITIAL_TASKS,
+          })
+          loadedNotes = seeded.notes
+          loadedTasks = seeded.tasks
+          loadedProjects = seeded.projects
+        }
+
+        if (cancelled) return
+        setNotes(loadedNotes)
+        setTasks(loadedTasks)
+        setProjects(loadedProjects)
+        const firstRegular = loadedNotes.find((n) => !n.inInbox)
+        setActiveNoteId(firstRegular?.id ?? "")
+      } catch (err) {
+        console.error("[v0] Failed to load data:", err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Sign out and return to the auth screen
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut()
+    router.replace("/auth")
+  }, [supabase, router])
 
   // ── Settings state ──
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -180,92 +270,116 @@ export default function Page() {
   }, [settings])
 
   // ── To-do state ──
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS)
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [todoSelection, setTodoSelection] = useState<TodoSelection>({ kind: "section", id: "today" })
 
   // Toggle a task complete/incomplete
   const handleToggleTask = useCallback((id: string) => {
     setTasks((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? { ...t, done: !t.done, completedAt: !t.done ? Date.now() : null }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id !== id) return t
+        const done = !t.done
+        const completedAt = done ? Date.now() : null
+        updateTask(supabase, id, { done, completedAt }).catch((e) =>
+          console.error("[v0] toggle task failed:", e)
+        )
+        return { ...t, done, completedAt }
+      })
     )
-  }, [])
+  }, [supabase])
 
   // Toggle a subtask
   const handleToggleSubtask = useCallback((taskId: string, subId: string) => {
     setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId
-          ? { ...t, subtasks: t.subtasks.map((s) => (s.id === subId ? { ...s, done: !s.done } : s)) }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id !== taskId) return t
+        const subtasks = t.subtasks.map((s) => (s.id === subId ? { ...s, done: !s.done } : s))
+        updateTask(supabase, taskId, { subtasks }).catch((e) =>
+          console.error("[v0] toggle subtask failed:", e)
+        )
+        return { ...t, subtasks }
+      })
     )
-  }, [])
+  }, [supabase])
 
   // Rename a task title
   const handleUpdateTaskTitle = useCallback((id: string, title: string) => {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)))
-  }, [])
+    updateTask(supabase, id, { title }).catch((e) =>
+      console.error("[v0] rename task failed:", e)
+    )
+  }, [supabase])
 
   // Add a new task into the current selection
   const handleAddTask = useCallback((input: NewTaskInput) => {
-    setTasks((prev) => {
-      const id = `task-${Date.now()}`
-      const base: Task = {
-        id,
-        title: input.title,
-        notes: input.notes ?? undefined,
-        due: input.due,
-        tag: input.tag ?? undefined,
-        done: false,
-        completedAt: null,
-        subtasks: [],
-        projectId: null,
-        order: prev.length,
+    const userId = userIdRef.current
+    if (!userId) return
+
+    const base: Task = {
+      id: `temp-${Date.now()}`,
+      title: input.title,
+      notes: input.notes ?? undefined,
+      due: input.due,
+      tag: input.tag ?? undefined,
+      done: false,
+      completedAt: null,
+      subtasks: [],
+      projectId: null,
+      order: tasks.length,
+    }
+    // Place into the active list
+    if (todoSelection.kind === "project") {
+      base.projectId = todoSelection.id
+    } else {
+      switch (todoSelection.id) {
+        case "today":
+          if (!input.due) base.pinnedToday = true
+          else base.due = input.due
+          break
+        case "someday":
+          base.someday = true
+          break
+        case "upcoming":
+          // keep provided due date; default to tomorrow if none
+          if (!input.due) {
+            const d = new Date(); d.setDate(d.getDate() + 1)
+            base.due = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+          }
+          break
+        // inbox / anytime: leave as provided
       }
-      // Place into the active list
-      if (todoSelection.kind === "project") {
-        base.projectId = todoSelection.id
-      } else {
-        switch (todoSelection.id) {
-          case "today":
-            if (!input.due) base.pinnedToday = true
-            else base.due = input.due
-            break
-          case "someday":
-            base.someday = true
-            break
-          case "upcoming":
-            // keep provided due date; default to tomorrow if none
-            if (!input.due) {
-              const d = new Date(); d.setDate(d.getDate() + 1)
-              base.due = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-            }
-            break
-          // inbox / anytime: leave as provided
-        }
-      }
-      return [...prev, base]
-    })
-  }, [todoSelection])
+    }
+
+    // Optimistic add, then reconcile with the db-generated row (real uuid).
+    setTasks((prev) => [...prev, base])
+    insertTask(supabase, userId, base)
+      .then((created) => {
+        setTasks((prev) => prev.map((t) => (t.id === base.id ? created : t)))
+      })
+      .catch((e) => {
+        console.error("[v0] add task failed:", e)
+        setTasks((prev) => prev.filter((t) => t.id !== base.id))
+      })
+  }, [todoSelection, tasks.length, supabase])
 
   // Create a new project
   const handleNewProject = useCallback(() => {
-    const id = `proj-${Date.now()}`
+    const userId = userIdRef.current
+    if (!userId) return
     const emojis = ["📁", "🚀", "📌", "🎯", "💡", "🌱", "📦", "⭐"]
-    const newProject: Project = {
-      id,
+    const draft = {
       name: "New Project",
       emoji: emojis[Math.floor(Math.random() * emojis.length)],
       headings: [],
     }
-    setProjects((prev) => [...prev, newProject])
-    setTodoSelection({ kind: "project", id })
-  }, [])
+    insertProject(supabase, userId, draft)
+      .then((created) => {
+        setProjects((prev) => [...prev, created])
+        setTodoSelection({ kind: "project", id: created.id })
+      })
+      .catch((e) => console.error("[v0] new project failed:", e))
+  }, [supabase])
 
   // Derived state
   const inboxNotes = notes.filter((n) => n.inInbox)
@@ -291,37 +405,49 @@ export default function Page() {
       prev.map((n) => {
         if (n.id !== activeNoteId) return n
         if (n.tags.some((t) => t.label.toLowerCase() === label.toLowerCase())) return n
-        return { ...n, tags: [...n.tags, noteTag] }
+        const tags = [...n.tags, noteTag]
+        updateNote(supabase, n.id, { tags }).catch((e) =>
+          console.error("[v0] add tag failed:", e)
+        )
+        return { ...n, tags }
       })
     )
-  }, [activeNoteId])
+  }, [activeNoteId, supabase])
 
   // Rename a tag across all notes
   const handleRenameTag = useCallback((oldLabel: string, newLabel: string) => {
     const color = getTagColor(newLabel)
     setNotes((prev) =>
-      prev.map((n) => ({
-        ...n,
-        tags: n.tags.map((t) =>
+      prev.map((n) => {
+        if (!n.tags.some((t) => t.label.toLowerCase() === oldLabel)) return n
+        const tags = n.tags.map((t) =>
           t.label.toLowerCase() === oldLabel
             ? { label: newLabel, color: color.bgClass, textColor: color.textClass }
             : t
-        ),
-      }))
+        )
+        updateNote(supabase, n.id, { tags }).catch((e) =>
+          console.error("[v0] rename tag failed:", e)
+        )
+        return { ...n, tags }
+      })
     )
     if (activeFilterTag === oldLabel) setActiveFilterTag(newLabel.toLowerCase())
-  }, [activeFilterTag])
+  }, [activeFilterTag, supabase])
 
   // Delete a tag from all notes
   const handleDeleteTag = useCallback((label: string) => {
     setNotes((prev) =>
-      prev.map((n) => ({
-        ...n,
-        tags: n.tags.filter((t) => t.label.toLowerCase() !== label),
-      }))
+      prev.map((n) => {
+        if (!n.tags.some((t) => t.label.toLowerCase() === label)) return n
+        const tags = n.tags.filter((t) => t.label.toLowerCase() !== label)
+        updateNote(supabase, n.id, { tags }).catch((e) =>
+          console.error("[v0] delete tag failed:", e)
+        )
+        return { ...n, tags }
+      })
     )
     if (activeFilterTag === label) setActiveFilterTag(null)
-  }, [activeFilterTag])
+  }, [activeFilterTag, supabase])
 
   // Cmd+K shortcut
   useEffect(() => {
@@ -342,60 +468,123 @@ export default function Page() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  const handleUpdate = useCallback((id: string, changes: Partial<Pick<Note, "title" | "preview">>) => {
+  // Debounced autosave from the editor (title / preview / content)
+  const handleUpdate = useCallback((id: string, changes: NoteChanges) => {
     setNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, ...changes } : n))
     )
-  }, [])
+    updateNote(supabase, id, changes).catch((e) =>
+      console.error("[v0] save note failed:", e)
+    )
+  }, [supabase])
 
   const handleNewNote = useCallback(() => {
-    const id = `new-${Date.now()}`
-    const newNote: Note = {
-      id,
+    const userId = userIdRef.current
+    if (!userId) return
+    const tempId = `temp-${Date.now()}`
+    const draft: Note = {
+      id: tempId,
       title: "Untitled",
       preview: "",
       date: "Just now",
       tags: [],
+      content: "<p></p>",
     }
-    setNotes((prev) => [newNote, ...prev])
-    setActiveNoteId(id)
+    setNotes((prev) => [draft, ...prev])
+    setActiveNoteId(tempId)
     setActiveNav("notes")
-  }, [])
+
+    insertNote(supabase, userId, { title: "Untitled", content: "<p></p>" })
+      .then((created) => {
+        setNotes((prev) => prev.map((n) => (n.id === tempId ? created : n)))
+        setActiveNoteId(created.id)
+      })
+      .catch((e) => {
+        console.error("[v0] new note failed:", e)
+        setNotes((prev) => prev.filter((n) => n.id !== tempId))
+      })
+  }, [supabase])
 
   // Quick capture → goes to Inbox
   const handleCapture = useCallback((captured: CapturedNote) => {
-    const id = `inbox-${Date.now()}`
+    const userId = userIdRef.current
+    if (!userId) return
+    const tempId = `temp-${Date.now()}`
     const now = new Date()
     const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    const newNote: Note = {
-      id,
+    const draft: Note = {
+      id: tempId,
       title: captured.title,
       preview: "",
       date: `Today ${timeStr}`,
       tags: captured.tags,
       inInbox: true,
+      content: "<p></p>",
     }
-    setNotes((prev) => [newNote, ...prev])
+    setNotes((prev) => [draft, ...prev])
     setActiveNav("inbox")
-  }, [])
+
+    insertNote(supabase, userId, {
+      title: captured.title,
+      tags: captured.tags,
+      isInbox: true,
+    })
+      .then((created) => {
+        setNotes((prev) => prev.map((n) => (n.id === tempId ? created : n)))
+      })
+      .catch((e) => {
+        console.error("[v0] capture failed:", e)
+        setNotes((prev) => prev.filter((n) => n.id !== tempId))
+      })
+  }, [supabase])
 
   // Move a note from Inbox → Notes
   const handleMoveToNotes = useCallback((id: string) => {
     setNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, inInbox: false } : n))
     )
-  }, [])
+    updateNote(supabase, id, { isInbox: false }).catch((e) =>
+      console.error("[v0] move to notes failed:", e)
+    )
+  }, [supabase])
 
   // Delete from inbox
   const handleDeleteInbox = useCallback((id: string) => {
     setNotes((prev) => prev.filter((n) => n.id !== id))
     if (activeNoteId === id) setActiveNoteId(regularNotes[0]?.id ?? "")
-  }, [activeNoteId, regularNotes])
+    deleteNote(supabase, id).catch((e) =>
+      console.error("[v0] delete note failed:", e)
+    )
+  }, [activeNoteId, regularNotes, supabase])
 
   // Open an inbox note in the editor
   const handleOpenInboxNote = useCallback((id: string) => {
     setActiveNoteId(id)
   }, [])
+
+  if (loading) {
+    return (
+      <div
+        className="flex h-full w-full items-center justify-center"
+        style={{ backgroundColor: "#1C1C1E" }}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl"
+            style={{ backgroundColor: "#D97B45" }}
+          >
+            <span
+              aria-hidden="true"
+              style={{ color: "#FAF9F7", fontSize: 18, fontWeight: 700, fontFamily: "Georgia, serif" }}
+            >
+              H
+            </span>
+          </div>
+          <p style={{ color: "#6E6E73", fontSize: 13 }}>Loading your workspace…</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full w-full overflow-hidden" style={{ backgroundColor: "#1C1C1E" }}>
@@ -406,6 +595,7 @@ export default function Page() {
         inboxCount={inboxNotes.length}
         onOpenSettings={() => setSettingsOpen(true)}
         settingsOpen={settingsOpen}
+        onSignOut={handleSignOut}
       />
 
       {/* To-do mode takes over columns 2 + 3 */}
@@ -464,7 +654,7 @@ export default function Page() {
       <NoteEditor
         note={activeNote}
         onUpdate={handleUpdate}
-        initialContent={activeNote ? (NOTE_CONTENT[activeNote.id] ?? undefined) : undefined}
+        initialContent={activeNote?.content ?? undefined}
         existingTags={existingTagEntries}
         onTagCreated={handleTagCreated}
       />
