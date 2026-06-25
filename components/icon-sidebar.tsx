@@ -23,9 +23,17 @@ interface IconSidebarProps {
   active: NavId
   onSelect: (id: NavId) => void
   inboxCount?: number
+  onOpenSettings?: () => void
+  settingsOpen?: boolean
 }
 
-export function IconSidebar({ active, onSelect, inboxCount = 0 }: IconSidebarProps) {
+export function IconSidebar({
+  active,
+  onSelect,
+  inboxCount = 0,
+  onOpenSettings,
+  settingsOpen = false,
+}: IconSidebarProps) {
   return (
     <nav
       aria-label="Main navigation"
@@ -108,11 +116,16 @@ export function IconSidebar({ active, onSelect, inboxCount = 0 }: IconSidebarPro
 
       {/* Settings at bottom */}
       <button
+        onClick={onOpenSettings}
         aria-label="Settings"
+        aria-current={settingsOpen ? "page" : undefined}
         className="icon-btn flex items-center justify-center w-10 h-10 rounded-xl mt-auto"
-        style={{ color: "#6E6E73" }}
+        style={{
+          color: settingsOpen ? "#E5E1DA" : "#6E6E73",
+          backgroundColor: settingsOpen ? "rgba(255,255,255,0.08)" : "transparent",
+        }}
       >
-        <Settings size={20} strokeWidth={1.75} aria-hidden="true" />
+        <Settings size={20} strokeWidth={settingsOpen ? 2 : 1.75} aria-hidden="true" />
       </button>
     </nav>
   )
