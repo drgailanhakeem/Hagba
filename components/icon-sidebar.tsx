@@ -27,6 +27,9 @@ interface IconSidebarProps {
   onOpenSettings?: () => void
   settingsOpen?: boolean
   onSignOut?: () => void
+  accent?: string
+  displayName?: string
+  avatarUrl?: string | null
 }
 
 export function IconSidebar({
@@ -36,7 +39,12 @@ export function IconSidebar({
   onOpenSettings,
   settingsOpen = false,
   onSignOut,
+  accent = "#D97B45",
+  displayName = "",
+  avatarUrl = null,
 }: IconSidebarProps) {
+  const initial = (displayName.trim().charAt(0) || "H").toUpperCase()
+
   return (
     <nav
       aria-label="Main navigation"
@@ -46,7 +54,7 @@ export function IconSidebar({
       {/* App mark — "H" lettermark for Hagba */}
       <div
         className="mb-4 flex items-center justify-center w-9 h-9 rounded-xl select-none"
-        style={{ backgroundColor: "#D97B45" }}
+        style={{ backgroundColor: accent }}
         aria-label="Hagba"
       >
         <span
@@ -79,7 +87,7 @@ export function IconSidebar({
               className="icon-btn flex items-center justify-center w-10 h-10 rounded-xl"
               style={{
                 position: "relative",
-                color: isActive ? "#E5E1DA" : "#6E6E73",
+                color: isActive ? accent : "#6E6E73",
                 backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
               }}
             >
@@ -96,7 +104,7 @@ export function IconSidebar({
                     minWidth: 16,
                     height: 16,
                     borderRadius: 999,
-                    backgroundColor: "#D97B45",
+                    backgroundColor: accent,
                     color: "#FFFFFF",
                     fontSize: 9,
                     fontWeight: 700,
@@ -117,7 +125,7 @@ export function IconSidebar({
         })}
       </div>
 
-      {/* Bottom group — Settings + Sign out */}
+      {/* Bottom group — Settings + Sign out + Avatar */}
       <div className="mt-auto flex flex-col items-center gap-1">
         <button
           onClick={onOpenSettings}
@@ -125,7 +133,7 @@ export function IconSidebar({
           aria-current={settingsOpen ? "page" : undefined}
           className="icon-btn flex items-center justify-center w-10 h-10 rounded-xl"
           style={{
-            color: settingsOpen ? "#E5E1DA" : "#6E6E73",
+            color: settingsOpen ? accent : "#6E6E73",
             backgroundColor: settingsOpen ? "rgba(255,255,255,0.08)" : "transparent",
           }}
         >
@@ -139,6 +147,39 @@ export function IconSidebar({
           style={{ color: "#6E6E73" }}
         >
           <LogOut size={20} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+
+        {/* Avatar */}
+        <button
+          onClick={onOpenSettings}
+          aria-label="Open profile settings"
+          className="flex items-center justify-center select-none"
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            marginTop: 4,
+            overflow: "hidden",
+            border: "1.5px solid rgba(255,255,255,0.14)",
+            background: avatarUrl ? "transparent" : accent,
+            color: "#FAF9F7",
+            fontSize: 13,
+            fontWeight: 700,
+            fontFamily: "'Georgia', serif",
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl || "/placeholder.svg"}
+              alt="Profile"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            initial
+          )}
         </button>
       </div>
     </nav>

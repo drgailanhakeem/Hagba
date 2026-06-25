@@ -46,6 +46,104 @@ interface ProjectRow {
   created_at: string
 }
 
+// ── User settings ─────────────────────────────────────────────────────────────
+
+export interface UserSettings {
+  displayName: string
+  avatarUrl: string | null
+  fontSize: "small" | "medium" | "large"
+  editorFont: "serif" | "sans"
+  accentColor: string
+  pomodoroFocus: number
+  pomodoroShortBreak: number
+  pomodoroLongBreak: number
+  soundEnabled: boolean
+}
+
+export const DEFAULT_USER_SETTINGS: UserSettings = {
+  displayName: "",
+  avatarUrl: null,
+  fontSize: "medium",
+  editorFont: "serif",
+  accentColor: "#D97B45",
+  pomodoroFocus: 25,
+  pomodoroShortBreak: 5,
+  pomodoroLongBreak: 15,
+  soundEnabled: true,
+}
+
+interface UserSettingsRow {
+  user_id: string
+  display_name: string
+  avatar_url: string | null
+  font_size: string
+  editor_font: string
+  accent_color: string
+  pomodoro_focus: number
+  pomodoro_short_break: number
+  pomodoro_long_break: number
+  sound_enabled: boolean
+}
+
+function rowToSettings(row: UserSettingsRow): UserSettings {
+  return {
+    displayName: row.display_name ?? "",
+    avatarUrl: row.avatar_url ?? null,
+    fontSize: (["small", "medium", "large"].includes(row.font_size) ? row.font_size : "medium") as UserSettings["fontSize"],
+    editorFont: (row.editor_font === "sans" ? "sans" : "serif") as UserSettings["editorFont"],
+    accentColor: row.accent_color ?? "#D97B45",
+    pomodoroFocus: row.pomodoro_focus ?? 25,
+    pomodoroShortBreak: row.pomodoro_short_break ?? 5,
+    pomodoroLongBreak: row.pomodoro_long_break ?? 15,
+    soundEnabled: row.sound_enabled ?? true,
+  }
+}
+
+/** Fetch the signed-in user's settings, or null when no row exists yet. */
+export async function fetchUserSettings(db: DB, userId: string): Promise<UserSettings | null> {
+  const { data, error } = await db
+    .from("user_settings")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  return rowToSettings(data as UserSettingsRow)
+}
+
+/** Insert or update the user's settings row. */
+export async function upsertUserSettings(db: DB, userId: string, s: UserSettings): Promise<void> {
+  const { error } = await db.from("user_settings").upsert(
+    {
+      user_id: userId,
+      display_name: s.displayName,
+      avatar_url: s.avatarUrl,
+      font_size: s.fontSize,
+      editor_font: s.editorFont,
+      accent_color: s.accentColor,
+      pomodoro_focus: s.pomodoroFocus,
+      pomodoro_short_break: s.pomodoroShortBreak,
+      pomodoro_long_break: s.pomodoroLongBreak,
+      sound_enabled: s.soundEnabled,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  )
+  if (error) throw error
+}
+
+/** Upload an avatar image to the "avatars" bucket and return its public URL. */
+export async function uploadAvatar(db: DB, userId: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "png"
+  const path = `${userId}/avatar-${Date.now()}.${ext}`
+  const { error } = await db.storage
+    .from("avatars")
+    .upload(path, file, { upsert: true, contentType: file.type || "image/png" })
+  if (error) throw error
+  const { data } = db.storage.from("avatars").getPublicUrl(path)
+  return data.publicUrl
+}
+
 // ── Date formatting for the note list / editor footer ───────────────────────
 
 export function formatNoteDate(iso: string): string {

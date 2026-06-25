@@ -397,6 +397,14 @@
   background-color: #F4F4F7;
 }
 
+/* Reveal per-row delete / add-date controls on hover or keyboard focus */
+.todo-task-row:hover .todo-delete-btn,
+.todo-task-row:focus-within .todo-delete-btn,
+.todo-task-row:hover .todo-add-date,
+.todo-task-row:focus-within .todo-add-date {
+  opacity: 1 !important;
+}
+
 /* Nav rows */
 .todo-nav-row {
   transition: background-color 0.12s ease;

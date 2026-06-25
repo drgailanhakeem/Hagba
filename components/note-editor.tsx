@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { Share2, MoreHorizontal, Tag } from "lucide-react"
 import type { Note } from "./note-list-panel"
 import { RichEditor, type RichEditorRef } from "./editor/rich-editor"
-import { PomodoroTimer } from "./pomodoro-timer"
+import { PomodoroTimer, type TimerSettings } from "./pomodoro-timer"
 
 import type { TagEntry } from "@/lib/tags"
 
@@ -16,6 +16,7 @@ interface NoteEditorProps {
   initialContent?: string
   existingTags?: TagEntry[]
   onTagCreated?: (label: string) => void
+  timerSettings?: TimerSettings
 }
 
 type SaveStatus = "idle" | "saving" | "saved"
@@ -34,7 +35,7 @@ function formatLastSaved(date: Date): string {
 // Map note IDs to their HTML content for session persistence
 const noteContentMap = new Map<string, string>()
 
-export function NoteEditor({ note, onUpdate, initialContent: seedContent, existingTags = [], onTagCreated }: NoteEditorProps) {
+export function NoteEditor({ note, onUpdate, initialContent: seedContent, existingTags = [], onTagCreated, timerSettings }: NoteEditorProps) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [lastSavedLabel, setLastSavedLabel] = useState("")
@@ -246,7 +247,7 @@ export function NoteEditor({ note, onUpdate, initialContent: seedContent, existi
           )}
 
           {/* Pomodoro timer */}
-          <PomodoroTimer noteTitle={titleValue || note.title} />
+          <PomodoroTimer noteTitle={titleValue || note.title} timerSettings={timerSettings} />
 
           {/* Divider */}
           <div style={{ width: 1, height: 18, background: "#EAE6E0", flexShrink: 0 }} aria-hidden="true" />
