@@ -192,7 +192,7 @@ export function NoteEditor({ note, onUpdate, initialContent: seedContent }: Note
           onChange={handleTitleChange}
           onFocus={() => setIsTitleFocused(true)}
           onBlur={() => setIsTitleFocused(false)}
-          aria-label="Note title"
+          aria-label="Note title — editor"
           placeholder="Untitled"
           className="title-input flex-1 bg-transparent font-semibold"
           style={{

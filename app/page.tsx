@@ -1,9 +1,12 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
+import { Plus } from "lucide-react"
 import { IconSidebar } from "@/components/icon-sidebar"
 import { NoteListPanel, type Note } from "@/components/note-list-panel"
 import { NoteEditor } from "@/components/note-editor"
+import { InboxView } from "@/components/inbox-view"
+import { QuickCaptureModal, type CapturedNote } from "@/components/quick-capture-modal"
 
 // ── Rich HTML seed content per note ────────────────────────────────────────
 export const NOTE_CONTENT: Record<string, string> = {
@@ -141,8 +144,27 @@ export default function Page() {
   const [notes, setNotes] = useState<Note[]>(INITIAL_NOTES)
   const [activeNoteId, setActiveNoteId] = useState<string>(INITIAL_NOTES[0].id)
   const [activeNav, setActiveNav] = useState<"inbox" | "notes" | "tags" | "search">("notes")
+  const [captureOpen, setCaptureOpen] = useState(false)
 
+  // Derived state
+  const inboxNotes = notes.filter((n) => n.inInbox)
+  const regularNotes = notes.filter((n) => !n.inInbox)
   const activeNote = notes.find((n) => n.id === activeNoteId) ?? null
+
+  // Cmd+K shortcut
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        setCaptureOpen((prev) => !prev)
+      }
+      if (e.key === "Escape") {
+        setCaptureOpen(false)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   const handleUpdate = useCallback((id: string, changes: Partial<Pick<Note, "title" | "preview">>) => {
     setNotes((prev) =>
@@ -161,26 +183,108 @@ export default function Page() {
     }
     setNotes((prev) => [newNote, ...prev])
     setActiveNoteId(id)
+    setActiveNav("notes")
+  }, [])
+
+  // Quick capture → goes to Inbox
+  const handleCapture = useCallback((captured: CapturedNote) => {
+    const id = `inbox-${Date.now()}`
+    const now = new Date()
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    const newNote: Note = {
+      id,
+      title: captured.title,
+      preview: "",
+      date: `Today ${timeStr}`,
+      tags: captured.tags,
+      inInbox: true,
+    }
+    setNotes((prev) => [newNote, ...prev])
+    setActiveNav("inbox")
+  }, [])
+
+  // Move a note from Inbox → Notes
+  const handleMoveToNotes = useCallback((id: string) => {
+    setNotes((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, inInbox: false } : n))
+    )
+  }, [])
+
+  // Delete from inbox
+  const handleDeleteInbox = useCallback((id: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id))
+    if (activeNoteId === id) setActiveNoteId(regularNotes[0]?.id ?? "")
+  }, [activeNoteId, regularNotes])
+
+  // Open an inbox note in the editor
+  const handleOpenInboxNote = useCallback((id: string) => {
+    setActiveNoteId(id)
   }, [])
 
   return (
     <div className="flex h-full w-full overflow-hidden" style={{ backgroundColor: "#1C1C1E" }}>
       {/* Column 1 — Icon sidebar */}
-      <IconSidebar active={activeNav} onSelect={setActiveNav} />
-
-      {/* Column 2 — Note list */}
-      <NoteListPanel
-        notes={notes}
-        activeId={activeNoteId}
-        onSelect={setActiveNoteId}
-        onNew={handleNewNote}
+      <IconSidebar
+        active={activeNav}
+        onSelect={setActiveNav}
+        inboxCount={inboxNotes.length}
       />
 
-      {/* Column 3 — Editor (pass seed HTML content for each note) */}
+      {/* Column 2 — Inbox or Note list */}
+      {activeNav === "inbox" ? (
+        <InboxView
+          notes={inboxNotes}
+          onMoveToNotes={handleMoveToNotes}
+          onDelete={handleDeleteInbox}
+          onOpen={handleOpenInboxNote}
+        />
+      ) : (
+        <NoteListPanel
+          notes={regularNotes}
+          activeId={activeNoteId}
+          onSelect={setActiveNoteId}
+          onNew={handleNewNote}
+        />
+      )}
+
+      {/* Column 3 — Editor */}
       <NoteEditor
         note={activeNote}
         onUpdate={handleUpdate}
         initialContent={activeNote ? (NOTE_CONTENT[activeNote.id] ?? undefined) : undefined}
+      />
+
+      {/* Floating quick-capture button */}
+      <button
+        onClick={() => setCaptureOpen(true)}
+        aria-label="Quick capture (Cmd+K)"
+        className="quick-capture-fab"
+        style={{
+          position: "fixed",
+          bottom: 28,
+          right: 28,
+          width: 44,
+          height: 44,
+          borderRadius: "50%",
+          backgroundColor: "#D97B45",
+          color: "#FFFFFF",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 4px 14px rgba(217, 123, 69, 0.45)",
+          zIndex: 100,
+        }}
+      >
+        <Plus size={20} strokeWidth={2.5} aria-hidden="true" />
+      </button>
+
+      {/* Quick capture modal */}
+      <QuickCaptureModal
+        isOpen={captureOpen}
+        onClose={() => setCaptureOpen(false)}
+        onCapture={handleCapture}
       />
     </div>
   )

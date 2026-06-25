@@ -14,6 +14,7 @@ export interface Note {
   preview: string
   date: string
   tags: NoteTag[]
+  inInbox?: boolean
 }
 
 interface NoteListPanelProps {

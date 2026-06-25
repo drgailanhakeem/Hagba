@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
 import {
-  Home,
+  Inbox,
   FileText,
   Tag,
   Search,
@@ -11,10 +10,10 @@ import {
 } from "lucide-react"
 
 const NAV_ITEMS = [
-  { id: "inbox",    icon: Home,      label: "Inbox"    },
-  { id: "notes",    icon: FileText,  label: "Notes"    },
-  { id: "tags",     icon: Tag,       label: "Tags"     },
-  { id: "search",   icon: Search,    label: "Search"   },
+  { id: "inbox",  icon: Inbox,    label: "Inbox"  },
+  { id: "notes",  icon: FileText, label: "Notes"  },
+  { id: "tags",   icon: Tag,      label: "Tags"   },
+  { id: "search", icon: Search,   label: "Search" },
 ] as const
 
 type NavId = (typeof NAV_ITEMS)[number]["id"]
@@ -22,9 +21,10 @@ type NavId = (typeof NAV_ITEMS)[number]["id"]
 interface IconSidebarProps {
   active: NavId
   onSelect: (id: NavId) => void
+  inboxCount?: number
 }
 
-export function IconSidebar({ active, onSelect }: IconSidebarProps) {
+export function IconSidebar({ active, onSelect, inboxCount = 0 }: IconSidebarProps) {
   return (
     <nav
       aria-label="Main navigation"
@@ -32,8 +32,10 @@ export function IconSidebar({ active, onSelect }: IconSidebarProps) {
       style={{ width: 56, backgroundColor: "#1C1C1E", flexShrink: 0 }}
     >
       {/* App mark */}
-      <div className="mb-4 flex items-center justify-center w-9 h-9 rounded-xl"
-           style={{ backgroundColor: "#D97B45" }}>
+      <div
+        className="mb-4 flex items-center justify-center w-9 h-9 rounded-xl"
+        style={{ backgroundColor: "#D97B45" }}
+      >
         <PenLine size={16} strokeWidth={2} style={{ color: "#FAF9F7" }} aria-hidden="true" />
       </div>
 
@@ -41,19 +43,50 @@ export function IconSidebar({ active, onSelect }: IconSidebarProps) {
       <div className="flex flex-col items-center gap-1 flex-1">
         {NAV_ITEMS.map(({ id, icon: Icon, label }) => {
           const isActive = active === id
+          const showBadge = id === "inbox" && inboxCount > 0
+
           return (
             <button
               key={id}
               onClick={() => onSelect(id)}
-              aria-label={label}
+              aria-label={showBadge ? `${label}, ${inboxCount} unprocessed` : label}
               aria-current={isActive ? "page" : undefined}
               className="icon-btn flex items-center justify-center w-10 h-10 rounded-xl"
               style={{
+                position: "relative",
                 color: isActive ? "#E5E1DA" : "#6E6E73",
                 backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
               }}
             >
               <Icon size={20} strokeWidth={isActive ? 2 : 1.75} aria-hidden="true" />
+
+              {/* Badge */}
+              {showBadge && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    top: 5,
+                    right: 5,
+                    minWidth: 16,
+                    height: 16,
+                    borderRadius: 999,
+                    backgroundColor: "#D97B45",
+                    color: "#FFFFFF",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    fontFamily: "system-ui, sans-serif",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "0 3px",
+                    lineHeight: 1,
+                    boxShadow: "0 0 0 1.5px #1C1C1E",
+                  }}
+                >
+                  {inboxCount > 99 ? "99+" : inboxCount}
+                </span>
+              )}
             </button>
           )
         })}
