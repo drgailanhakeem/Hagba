@@ -1,0 +1,138 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Bear app color system */
+  --color-bear-icon-sidebar: #1C1C1E;
+  --color-bear-note-panel: #F0EDE8;
+  --color-bear-editor: #FAF9F7;
+  --color-bear-divider: #E2DDD5;
+  --color-bear-muted: #9A9590;
+  --color-bear-light: #B8B4AC;
+  --color-bear-accent: #D97B45;
+  --color-bear-active-card: #E8E4DD;
+  --color-bear-icon-active: #E5E1DA;
+  --color-bear-icon-inactive: #6E6E73;
+  --color-bear-title: #1C1B19;
+  --color-bear-body: #2C2A27;
+  --color-bear-preview: #787470;
+
+  /* Semantic tokens */
+  --color-background: #FAF9F7;
+  --color-foreground: #1C1B19;
+  --color-border: #E2DDD5;
+  --color-ring: #D97B45;
+  --color-muted: #F0EDE8;
+  --color-muted-foreground: #9A9590;
+  --color-accent: #D97B45;
+  --color-accent-foreground: #FAF9F7;
+  --color-primary: #1C1B19;
+  --color-primary-foreground: #FAF9F7;
+  --color-secondary: #F0EDE8;
+  --color-secondary-foreground: #2C2A27;
+  --color-card: #FAF9F7;
+  --color-card-foreground: #1C1B19;
+  --color-popover: #FAF9F7;
+  --color-popover-foreground: #1C1B19;
+  --color-input: #E2DDD5;
+  --color-destructive: oklch(0.577 0.245 27.325);
+
+  /* Keep sidebar tokens */
+  --color-sidebar-ring: #D97B45;
+  --color-sidebar-border: #E2DDD5;
+  --color-sidebar-accent-foreground: #2C2A27;
+  --color-sidebar-accent: #E8E4DD;
+  --color-sidebar-primary-foreground: #FAF9F7;
+  --color-sidebar-primary: #1C1B19;
+  --color-sidebar-foreground: #2C2A27;
+  --color-sidebar: #F0EDE8;
+
+  /* Typography */
+  --font-sans: var(--font-inter), 'Inter', 'SF Pro Text', system-ui, sans-serif;
+  --font-serif: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
+  --font-mono: var(--font-geist-mono), 'Geist Mono Fallback';
+
+  /* Radius */
+  --radius: 0.375rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    background-color: #1C1C1E;
+  }
+  body {
+    @apply font-sans antialiased text-foreground;
+  }
+}
+
+/* ─── Note list scrollbar ─── */
+.note-list-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #D4CFC7 transparent;
+}
+.note-list-scroll::-webkit-scrollbar { width: 4px; }
+.note-list-scroll::-webkit-scrollbar-track { background: transparent; }
+.note-list-scroll::-webkit-scrollbar-thumb {
+  background-color: #D4CFC7;
+  border-radius: 2px;
+}
+
+/* ─── Editor scrollbar ─── */
+.editor-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #DDD9D0 transparent;
+}
+.editor-scroll::-webkit-scrollbar { width: 6px; }
+.editor-scroll::-webkit-scrollbar-track { background: transparent; }
+.editor-scroll::-webkit-scrollbar-thumb {
+  background-color: #DDD9D0;
+  border-radius: 3px;
+}
+
+/* ─── Editor prose ─── */
+.editor-prose {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
+  font-size: 17px;
+  line-height: 1.8;
+  color: #2C2A27;
+  caret-color: #D97B45;
+}
+.editor-prose:focus { outline: none; }
+.editor-prose:empty::before {
+  content: attr(data-placeholder);
+  color: #B8B4AC;
+  pointer-events: none;
+}
+
+/* ─── Title input ─── */
+.title-input {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
+  caret-color: #D97B45;
+}
+.title-input:focus { outline: none; }
+.title-input::placeholder { color: #C8C4BC; }
+
+/* ─── Transitions ─── */
+.note-card { transition: background-color 0.1s ease; }
+.icon-btn   { transition: color 0.1s ease, background-color 0.1s ease; }
