@@ -19,7 +19,7 @@ import {
   type Task,
   type Project,
 } from "@/lib/todos"
-import { SettingsModal, DEFAULT_SETTINGS, type Settings } from "@/components/settings-modal"
+import { SettingsModal } from "@/components/settings-modal"
 import { createClient } from "@/lib/supabase/client"
 import {
   fetchNotes,
@@ -33,6 +33,11 @@ import {
   deleteTask,
   insertProject,
   seedInitialData,
+  fetchUserSettings,
+  upsertUserSettings,
+  uploadAvatar,
+  DEFAULT_USER_SETTINGS,
+  type UserSettings,
 } from "@/lib/db"
 
 // ── Rich HTML seed content per note ────────────────────────────────────────
@@ -178,6 +183,14 @@ export default function Page() {
   const [captureOpen, setCaptureOpen] = useState(false)
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [email, setEmail] = useState("")
+
+  // ── Settings state ──
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const settingsHydrated = useRef(false)
 
   // ── Load the signed-in user's data from Supabase (seed on first run) ──
   useEffect(() => {
@@ -191,13 +204,26 @@ export default function Page() {
         return
       }
       userIdRef.current = user.id
+      setEmail(user.email ?? "")
 
       try {
-        let [loadedNotes, loadedTasks, loadedProjects] = await Promise.all([
+        let [loadedNotes, loadedTasks, loadedProjects, loadedSettings] = await Promise.all([
           fetchNotes(supabase),
           fetchTasks(supabase),
           fetchProjects(supabase),
+          fetchUserSettings(supabase, user.id),
         ])
+
+        // Settings: create a default row on first run, seeding display name from email.
+        if (!loadedSettings) {
+          const fallbackName = (user.email ?? "").split("@")[0] || "there"
+          loadedSettings = { ...DEFAULT_USER_SETTINGS, displayName: fallbackName }
+          await upsertUserSettings(supabase, user.id, loadedSettings)
+        }
+        if (!cancelled) {
+          setSettings(loadedSettings)
+          settingsHydrated.current = true
+        }
 
         // First run: nothing stored yet → seed the demo content.
         if (loadedNotes.length === 0 && loadedTasks.length === 0 && loadedProjects.length === 0) {
@@ -233,6 +259,7 @@ export default function Page() {
         setActiveNoteId(firstRegular?.id ?? "")
       } catch (err) {
         console.error("[v0] Failed to load data:", err)
+        if (!cancelled) setLoadError(true)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -250,24 +277,72 @@ export default function Page() {
     router.replace("/auth")
   }, [supabase, router])
 
-  // ── Settings state ──
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
-
-  // Apply live-preview settings (accent + editor typography) to the document root
+  // Apply settings (accent + editor typography) to the document root
   useEffect(() => {
     const root = document.documentElement
-    root.style.setProperty("--color-bear-accent", settings.accent)
-    root.style.setProperty("--color-accent", settings.accent)
-    root.style.setProperty("--color-ring", settings.accent)
-    root.style.setProperty("--color-sidebar-ring", settings.accent)
+    root.style.setProperty("--color-bear-accent", settings.accentColor)
+    root.style.setProperty("--color-accent", settings.accentColor)
+    root.style.setProperty("--color-ring", settings.accentColor)
+    root.style.setProperty("--color-sidebar-ring", settings.accentColor)
 
     const sizes = { small: "15px", medium: "17px", large: "19px" } as const
-    root.style.setProperty("--editor-font-size", sizes[settings.editorFontSize])
+    root.style.setProperty("--editor-font-size", sizes[settings.fontSize])
 
-    const spacing = { compact: "1.5", normal: "1.8", relaxed: "2.1" } as const
-    root.style.setProperty("--editor-line-height", spacing[settings.lineSpacing])
+    const serif = "'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif"
+    const sans = "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    root.style.setProperty("--editor-font-family", settings.editorFont === "sans" ? sans : serif)
   }, [settings])
+
+  // Persist settings to Supabase whenever they change (after the first hydration)
+  useEffect(() => {
+    if (!settingsHydrated.current) return
+    const userId = userIdRef.current
+    if (!userId) return
+    const handle = setTimeout(() => {
+      upsertUserSettings(supabase, userId, settings).catch((e) =>
+        console.error("[v0] save settings failed:", e)
+      )
+    }, 600)
+    return () => clearTimeout(handle)
+  }, [settings, supabase])
+
+  // Upload a new avatar to Supabase Storage, then save the URL.
+  const handleUploadAvatar = useCallback(async (file: File) => {
+    const userId = userIdRef.current
+    if (!userId) return
+    setAvatarUploading(true)
+    try {
+      const url = await uploadAvatar(supabase, userId, file)
+      setSettings((prev) => ({ ...prev, avatarUrl: url }))
+    } catch (e) {
+      console.error("[v0] avatar upload failed:", e)
+    } finally {
+      setAvatarUploading(false)
+    }
+  }, [supabase])
+
+  // Permanently delete the account + all data, then return to auth.
+  const handleDeleteAccount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" })
+      if (!res.ok) throw new Error("delete failed")
+      await supabase.auth.signOut().catch(() => {})
+      router.replace("/auth")
+    } catch (e) {
+      console.error("[v0] delete account failed:", e)
+    }
+  }, [supabase, router])
+
+  // Pomodoro durations synced from settings
+  const timerSettings = useMemo(
+    () => ({
+      focusMins: settings.pomodoroFocus,
+      shortBreakMins: settings.pomodoroShortBreak,
+      longBreakMins: settings.pomodoroLongBreak,
+      soundEnabled: settings.soundEnabled,
+    }),
+    [settings.pomodoroFocus, settings.pomodoroShortBreak, settings.pomodoroLongBreak, settings.soundEnabled],
+  )
 
   // ── To-do state ──
   const [tasks, setTasks] = useState<Task[]>([])
@@ -308,6 +383,29 @@ export default function Page() {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)))
     updateTask(supabase, id, { title }).catch((e) =>
       console.error("[v0] rename task failed:", e)
+    )
+  }, [supabase])
+
+  // Delete a task
+  const handleDeleteTask = useCallback((id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id))
+    deleteTask(supabase, id).catch((e) =>
+      console.error("[v0] delete task failed:", e)
+    )
+  }, [supabase])
+
+  // Change (or clear) a task's due date
+  const handleUpdateTaskDue = useCallback((id: string, due: string | null) => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t
+        // Setting an explicit date clears the manual "today" pin / someday flag.
+        const next = { ...t, due, pinnedToday: due ? false : t.pinnedToday, someday: due ? false : t.someday }
+        updateTask(supabase, id, { due, pinnedToday: next.pinnedToday, someday: next.someday }).catch((e) =>
+          console.error("[v0] update due failed:", e)
+        )
+        return next
+      })
     )
   }, [supabase])
 
@@ -586,6 +684,49 @@ export default function Page() {
     )
   }
 
+  if (loadError) {
+    return (
+      <div
+        className="flex h-full w-full items-center justify-center"
+        style={{ backgroundColor: "#1C1C1E" }}
+      >
+        <div className="flex flex-col items-center gap-4" style={{ textAlign: "center", padding: 24 }}>
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl"
+            style={{ backgroundColor: "#D97B45" }}
+          >
+            <span
+              aria-hidden="true"
+              style={{ color: "#FAF9F7", fontSize: 18, fontWeight: 700, fontFamily: "Georgia, serif" }}
+            >
+              H
+            </span>
+          </div>
+          <p style={{ color: "#E5E1DA", fontSize: 15, fontWeight: 600 }}>Something went wrong.</p>
+          <p style={{ color: "#6E6E73", fontSize: 13, maxWidth: 260, lineHeight: 1.5 }}>
+            We couldn&apos;t load your workspace. Please try refreshing.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: 4,
+              padding: "8px 16px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#FAF9F7",
+              background: "#D97B45",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full w-full overflow-hidden" style={{ backgroundColor: "#1C1C1E" }}>
       {/* Column 1 — Icon sidebar */}
@@ -596,6 +737,9 @@ export default function Page() {
         onOpenSettings={() => setSettingsOpen(true)}
         settingsOpen={settingsOpen}
         onSignOut={handleSignOut}
+        accent={settings.accentColor}
+        displayName={settings.displayName}
+        avatarUrl={settings.avatarUrl}
       />
 
       {/* To-do mode takes over columns 2 + 3 */}
@@ -616,6 +760,8 @@ export default function Page() {
             onToggleSubtask={handleToggleSubtask}
             onAddTask={handleAddTask}
             onUpdateTitle={handleUpdateTaskTitle}
+            onDeleteTask={handleDeleteTask}
+            onUpdateDue={handleUpdateTaskDue}
           />
         </>
       ) : (
@@ -646,6 +792,7 @@ export default function Page() {
           activeId={activeNoteId}
           onSelect={setActiveNoteId}
           onNew={handleNewNote}
+          onDelete={handleDeleteInbox}
           filterTag={activeFilterTag}
         />
       )}
@@ -657,6 +804,7 @@ export default function Page() {
         initialContent={activeNote?.content ?? undefined}
         existingTags={existingTagEntries}
         onTagCreated={handleTagCreated}
+        timerSettings={timerSettings}
       />
 
       {/* Floating quick-capture button */}
@@ -698,9 +846,13 @@ export default function Page() {
       <SettingsModal
         open={settingsOpen}
         settings={settings}
+        email={email}
         onChange={setSettings}
         onClose={() => setSettingsOpen(false)}
-        onReset={() => setSettings(DEFAULT_SETTINGS)}
+        onUploadAvatar={handleUploadAvatar}
+        onSignOut={handleSignOut}
+        onDeleteAccount={handleDeleteAccount}
+        avatarUploading={avatarUploading}
       />
     </div>
   )

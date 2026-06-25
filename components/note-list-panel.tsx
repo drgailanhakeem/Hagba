@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState, useCallback } from "react"
-import { MoreHorizontal, Plus, Search, X } from "lucide-react"
+import { useEffect, useMemo, useState, useCallback } from "react"
+import { MoreHorizontal, Plus, Search, X, Trash2 } from "lucide-react"
 
 export interface NoteTag {
   label: string
@@ -25,6 +25,7 @@ interface NoteListPanelProps {
   activeId: string
   onSelect: (id: string) => void
   onNew: () => void
+  onDelete?: (id: string) => void
   /** When set, only notes with this tag (lowercase) are shown */
   filterTag?: string | null
 }
@@ -75,11 +76,33 @@ export function NoteListPanel({
   activeId,
   onSelect,
   onNew,
+  onDelete,
   filterTag = null,
 }: NoteListPanelProps) {
   const [query, setQuery] = useState("")
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
 
   const handleClear = useCallback(() => setQuery(""), [])
+
+  // Close the context menu on any outside click / escape
+  useEffect(() => {
+    if (!menu) return
+    function close() {
+      setMenu(null)
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenu(null)
+    }
+    window.addEventListener("click", close)
+    window.addEventListener("keydown", onKey)
+    return () => {
+      window.removeEventListener("click", close)
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [menu])
+
+  const confirmNote = confirmId ? notes.find((n) => n.id === confirmId) ?? null : null
 
   // Filter by tag first, then by search query
   const visibleNotes = useMemo(() => {
@@ -196,7 +219,7 @@ export function NoteListPanel({
           <li style={{ padding: "24px 16px", textAlign: "center" }}>
             <p style={{ fontSize: 13, color: "#B8B4AC", fontFamily: "system-ui, sans-serif" }}>
               {trimmedQuery
-                ? `No results for "${trimmedQuery}"`
+                ? "No notes match your search."
                 : "No notes yet."}
             </p>
           </li>
@@ -208,6 +231,11 @@ export function NoteListPanel({
             <li key={note.id} role="listitem">
               <button
                 onClick={() => onSelect(note.id)}
+                onContextMenu={(e) => {
+                  if (!onDelete) return
+                  e.preventDefault()
+                  setMenu({ id: note.id, x: e.clientX, y: e.clientY })
+                }}
                 aria-current={isActive ? "true" : undefined}
                 className="note-card w-full text-left px-4 py-3"
                 style={{
@@ -260,6 +288,128 @@ export function NoteListPanel({
           )
         })}
       </ul>
+
+      {/* Right-click context menu */}
+      {menu && onDelete && (
+        <div
+          role="menu"
+          aria-label="Note actions"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            top: menu.y,
+            left: menu.x,
+            zIndex: 9998,
+            background: "#FFFFFF",
+            border: "1px solid #E2DDD5",
+            borderRadius: 8,
+            boxShadow: "0 8px 28px rgba(28,27,25,0.18)",
+            padding: 4,
+            minWidth: 150,
+            animation: "fadeIn 0.1s ease",
+          }}
+        >
+          <button
+            role="menuitem"
+            onClick={() => {
+              setConfirmId(menu.id)
+              setMenu(null)
+            }}
+            className="flex items-center gap-2.5 w-full text-left rounded-md"
+            style={{
+              padding: "7px 10px",
+              fontSize: 13,
+              color: "#C0392B",
+              fontFamily: "system-ui, sans-serif",
+              background: "transparent",
+              cursor: "pointer",
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "#FBECEA")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
+          >
+            <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+            Delete note
+          </button>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {confirmNote && onDelete && (
+        <div
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setConfirmId(null)
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(28,27,25,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Delete note"
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              background: "#FAF9F7",
+              borderRadius: 12,
+              boxShadow: "0 24px 70px rgba(28,27,25,0.4)",
+              padding: 22,
+            }}
+          >
+            <p style={{ fontSize: 15, fontWeight: 600, color: "#1C1B19" }}>Delete note?</p>
+            <p style={{ fontSize: 13.5, color: "#787470", marginTop: 6, lineHeight: 1.5 }}>
+              {'"'}
+              {confirmNote.title || "Untitled"}
+              {'"'} will be permanently deleted. This can&apos;t be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2" style={{ marginTop: 18 }}>
+              <button
+                onClick={() => setConfirmId(null)}
+                style={{
+                  padding: "8px 14px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "#5E5A55",
+                  background: "#F0EDE8",
+                  border: "1px solid #E2DDD5",
+                  borderRadius: 7,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onDelete(confirmNote.id)
+                  setConfirmId(null)
+                }}
+                className="flex items-center gap-2"
+                style={{
+                  padding: "8px 14px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#FFFFFF",
+                  background: "#C0392B",
+                  border: "none",
+                  borderRadius: 7,
+                  cursor: "pointer",
+                }}
+              >
+                <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }

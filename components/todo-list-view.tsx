@@ -21,6 +21,8 @@ interface TodoListViewProps {
   onToggleSubtask: (taskId: string, subId: string) => void
   onAddTask: (input: NewTaskInput) => void
   onUpdateTitle: (id: string, title: string) => void
+  onDeleteTask: (id: string) => void
+  onUpdateDue: (id: string, due: string | null) => void
 }
 
 export interface NewTaskInput {
@@ -46,6 +48,8 @@ export function TodoListView({
   onToggleSubtask,
   onAddTask,
   onUpdateTitle,
+  onDeleteTask,
+  onUpdateDue,
 }: TodoListViewProps) {
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
@@ -151,6 +155,8 @@ export function TodoListView({
               onToggleTask={onToggleTask}
               onToggleSubtask={onToggleSubtask}
               onUpdateTitle={onUpdateTitle}
+              onDeleteTask={onDeleteTask}
+              onUpdateDue={onUpdateDue}
             />
           ) : project ? (
             <ProjectTaskList
@@ -159,6 +165,8 @@ export function TodoListView({
               onToggleTask={onToggleTask}
               onToggleSubtask={onToggleSubtask}
               onUpdateTitle={onUpdateTitle}
+              onDeleteTask={onDeleteTask}
+              onUpdateDue={onUpdateDue}
             />
           ) : (
             <div className="flex flex-col">
@@ -169,6 +177,8 @@ export function TodoListView({
                   onToggle={onToggleTask}
                   onToggleSubtask={onToggleSubtask}
                   onUpdateTitle={onUpdateTitle}
+                  onDelete={onDeleteTask}
+                  onUpdateDue={onUpdateDue}
                 />
               ))}
             </div>
@@ -199,6 +209,7 @@ export function TodoListView({
                       onToggle={onToggleTask}
                       onToggleSubtask={onToggleSubtask}
                       onUpdateTitle={onUpdateTitle}
+                      onDelete={onDeleteTask}
                     />
                   ))}
                 </div>
@@ -243,11 +254,15 @@ function UpcomingGroups({
   onToggleTask,
   onToggleSubtask,
   onUpdateTitle,
+  onDeleteTask,
+  onUpdateDue,
 }: {
   tasks: Task[]
   onToggleTask: (id: string) => void
   onToggleSubtask: (taskId: string, subId: string) => void
   onUpdateTitle: (id: string, title: string) => void
+  onDeleteTask: (id: string) => void
+  onUpdateDue: (id: string, due: string | null) => void
 }) {
   const groups = useMemo(() => {
     const sorted = [...tasks].sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""))
@@ -276,6 +291,8 @@ function UpcomingGroups({
                 onToggle={onToggleTask}
                 onToggleSubtask={onToggleSubtask}
                 onUpdateTitle={onUpdateTitle}
+                onDelete={onDeleteTask}
+                onUpdateDue={onUpdateDue}
               />
             ))}
           </div>
@@ -292,12 +309,16 @@ function ProjectTaskList({
   onToggleTask,
   onToggleSubtask,
   onUpdateTitle,
+  onDeleteTask,
+  onUpdateDue,
 }: {
   project: Project
   tasks: Task[]
   onToggleTask: (id: string) => void
   onToggleSubtask: (taskId: string, subId: string) => void
   onUpdateTitle: (id: string, title: string) => void
+  onDeleteTask: (id: string) => void
+  onUpdateDue: (id: string, due: string | null) => void
 }) {
   // Build an interleaved list of headings + tasks ordered by `order`
   const items = useMemo(() => {
@@ -334,6 +355,8 @@ function ProjectTaskList({
             onToggle={onToggleTask}
             onToggleSubtask={onToggleSubtask}
             onUpdateTitle={onUpdateTitle}
+            onDelete={onDeleteTask}
+            onUpdateDue={onUpdateDue}
           />
         )
       )}

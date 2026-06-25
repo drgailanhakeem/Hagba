@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Check, ChevronRight, Calendar } from "lucide-react"
+import { Check, ChevronRight, Calendar, X } from "lucide-react"
 import type { Task } from "@/lib/todos"
 import { formatDueLabel, isOverdue, isToday } from "@/lib/todos"
 
@@ -13,6 +13,8 @@ interface TaskRowProps {
   onToggle: (id: string) => void
   onToggleSubtask: (taskId: string, subId: string) => void
   onUpdateTitle?: (id: string, title: string) => void
+  onDelete?: (id: string) => void
+  onUpdateDue?: (id: string, due: string | null) => void
 }
 
 const ACCENT = "#007AFF"
@@ -24,12 +26,16 @@ export function TodoTaskRow({
   onToggle,
   onToggleSubtask,
   onUpdateTitle,
+  onDelete,
+  onUpdateDue,
 }: TaskRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(task.title)
+  const [dateOpen, setDateOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dateWrapRef = useRef<HTMLDivElement>(null)
 
   const hasSubtasks = task.subtasks.length > 0
   const doneSubs = task.subtasks.filter((s) => s.done).length
@@ -38,6 +44,18 @@ export function TodoTaskRow({
   useEffect(() => {
     if (editing) inputRef.current?.focus()
   }, [editing])
+
+  // Close the date popover on outside click
+  useEffect(() => {
+    if (!dateOpen) return
+    function handler(e: MouseEvent) {
+      if (dateWrapRef.current && !dateWrapRef.current.contains(e.target as Node)) {
+        setDateOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [dateOpen])
 
   function handleCheck() {
     if (task.done) {
@@ -168,19 +186,140 @@ export function TodoTaskRow({
                   {doneSubs}/{task.subtasks.length}
                 </span>
               )}
-              {task.due && (
-                <span
-                  className="flex items-center gap-1"
+
+              {/* Due date — click to change via date picker */}
+              {(task.due || onUpdateDue) && (
+                <div ref={dateWrapRef} style={{ position: "relative" }}>
+                  {task.due ? (
+                    <button
+                      onClick={() => onUpdateDue && setDateOpen((o) => !o)}
+                      aria-label="Change due date"
+                      className="flex items-center gap-1"
+                      style={{
+                        fontSize: 12.5,
+                        fontWeight: 500,
+                        color: overdue ? OVERDUE : isToday(task.due) ? ACCENT : "#8E8E93",
+                        fontVariantNumeric: "tabular-nums",
+                        background: "none",
+                        border: "none",
+                        cursor: onUpdateDue ? "pointer" : "default",
+                        padding: 0,
+                      }}
+                    >
+                      <Calendar size={12} strokeWidth={2} aria-hidden="true" />
+                      {formatDueLabel(task.due)}
+                    </button>
+                  ) : (
+                    onUpdateDue && (
+                      <button
+                        onClick={() => setDateOpen((o) => !o)}
+                        aria-label="Add due date"
+                        title="Add due date"
+                        className="todo-add-date flex items-center justify-center"
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 6,
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#C7C7CC",
+                          opacity: 0,
+                          transition: "opacity 0.12s ease, color 0.12s ease",
+                        }}
+                      >
+                        <Calendar size={13} strokeWidth={2} aria-hidden="true" />
+                      </button>
+                    )
+                  )}
+
+                  {dateOpen && onUpdateDue && (
+                    <div
+                      role="dialog"
+                      aria-label="Set due date"
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 6px)",
+                        right: 0,
+                        zIndex: 60,
+                        background: "#FFFFFF",
+                        border: "1px solid #E2E2E6",
+                        borderRadius: 10,
+                        boxShadow: "0 10px 32px rgba(0,0,0,0.14)",
+                        padding: 10,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                        width: 180,
+                      }}
+                    >
+                      <input
+                        type="date"
+                        value={task.due ?? ""}
+                        onChange={(e) => {
+                          onUpdateDue(task.id, e.target.value || null)
+                          setDateOpen(false)
+                        }}
+                        aria-label="Due date"
+                        autoFocus
+                        style={{
+                          fontSize: 13,
+                          color: "#1D1D1F",
+                          border: "1px solid #E2E2E6",
+                          borderRadius: 7,
+                          padding: "6px 8px",
+                          outline: "none",
+                          colorScheme: "light",
+                        }}
+                      />
+                      {task.due && (
+                        <button
+                          onClick={() => {
+                            onUpdateDue(task.id, null)
+                            setDateOpen(false)
+                          }}
+                          className="flex items-center gap-1.5"
+                          style={{
+                            fontSize: 12.5,
+                            color: "#8E8E93",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: "2px 0",
+                          }}
+                        >
+                          <X size={12} strokeWidth={2} aria-hidden="true" />
+                          Clear date
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Hover delete */}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(task.id)}
+                  aria-label="Delete task"
+                  title="Delete task"
+                  className="todo-delete-btn flex items-center justify-center"
                   style={{
-                    fontSize: 12.5,
-                    fontWeight: 500,
-                    color: overdue ? OVERDUE : isToday(task.due) ? ACCENT : "#8E8E93",
-                    fontVariantNumeric: "tabular-nums",
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#C7C7CC",
+                    opacity: 0,
+                    transition: "opacity 0.12s ease, color 0.12s ease",
                   }}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = OVERDUE)}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#C7C7CC")}
                 >
-                  <Calendar size={12} strokeWidth={2} aria-hidden="true" />
-                  {formatDueLabel(task.due)}
-                </span>
+                  <X size={15} strokeWidth={2.2} aria-hidden="true" />
+                </button>
               )}
             </div>
           </div>

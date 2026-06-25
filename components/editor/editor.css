@@ -9,16 +9,16 @@
 }
 
 .bear-editor {
-  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif !important;
-  font-size: 17px !important;
-  line-height: 1.8 !important;
+  font-family: var(--editor-font-family, 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif) !important;
+  font-size: var(--editor-font-size, 17px) !important;
+  line-height: var(--editor-line-height, 1.8) !important;
   color: #2C2A27 !important;
-  caret-color: #D97B45;
+  caret-color: var(--color-bear-accent, #D97B45);
 }
 
 /* Headings */
 .bear-editor h1 {
-  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif !important;
+  font-family: var(--editor-font-family, 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif) !important;
   font-size: 28px !important;
   font-weight: 700 !important;
   line-height: 1.25 !important;
@@ -30,7 +30,7 @@
 }
 
 .bear-editor h2 {
-  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif !important;
+  font-family: var(--editor-font-family, 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif) !important;
   font-size: 22px !important;
   font-weight: 600 !important;
   line-height: 1.3 !important;
@@ -42,7 +42,7 @@
 }
 
 .bear-editor h3 {
-  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif !important;
+  font-family: var(--editor-font-family, 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif) !important;
   font-size: 18px !important;
   font-weight: 600 !important;
   line-height: 1.4 !important;

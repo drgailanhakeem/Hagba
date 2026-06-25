@@ -4,42 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import {
   User,
   Paintbrush,
-  Type,
   Timer,
-  Keyboard,
-  Info,
+  ShieldAlert,
   X,
   Check,
+  Camera,
+  Loader2,
+  LogOut,
+  Trash2,
+  Volume2,
+  VolumeX,
 } from "lucide-react"
-
-// ── Settings model ──────────────────────────────────────────────────────────
-export interface Settings {
-  name: string
-  email: string
-  startupView: "inbox" | "notes" | "todos"
-  accent: string
-  editorFontSize: "small" | "medium" | "large"
-  lineSpacing: "compact" | "normal" | "relaxed"
-  spellcheck: boolean
-  showWordCount: boolean
-  confirmDelete: boolean
-  pomodoroFocus: number
-  pomodoroBreak: number
-}
-
-export const DEFAULT_SETTINGS: Settings = {
-  name: "Gailan Hakeem",
-  email: "hello@hagba.app",
-  startupView: "notes",
-  accent: "#D97B45",
-  editorFontSize: "medium",
-  lineSpacing: "normal",
-  spellcheck: true,
-  showWordCount: true,
-  confirmDelete: true,
-  pomodoroFocus: 25,
-  pomodoroBreak: 5,
-}
+import type { UserSettings } from "@/lib/db"
 
 const ACCENTS: { id: string; label: string; hex: string }[] = [
   { id: "amber", label: "Amber", hex: "#D97B45" },
@@ -50,29 +26,25 @@ const ACCENTS: { id: string; label: string; hex: string }[] = [
   { id: "graphite", label: "Graphite", hex: "#4B5563" },
 ]
 
-type CategoryId =
-  | "general"
-  | "appearance"
-  | "editor"
-  | "pomodoro"
-  | "shortcuts"
-  | "about"
+type CategoryId = "profile" | "appearance" | "pomodoro" | "account"
 
 const CATEGORIES: { id: CategoryId; label: string; icon: typeof User }[] = [
-  { id: "general", label: "General", icon: User },
+  { id: "profile", label: "Profile", icon: User },
   { id: "appearance", label: "Appearance", icon: Paintbrush },
-  { id: "editor", label: "Editor", icon: Type },
-  { id: "pomodoro", label: "Focus Timer", icon: Timer },
-  { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
-  { id: "about", label: "About", icon: Info },
+  { id: "pomodoro", label: "Pomodoro", icon: Timer },
+  { id: "account", label: "Account", icon: ShieldAlert },
 ]
 
 interface SettingsModalProps {
   open: boolean
-  settings: Settings
-  onChange: (next: Settings) => void
+  settings: UserSettings
+  email: string
+  onChange: (next: UserSettings) => void
   onClose: () => void
-  onReset: () => void
+  onUploadAvatar: (file: File) => Promise<void>
+  onSignOut: () => void
+  onDeleteAccount: () => Promise<void>
+  avatarUploading?: boolean
 }
 
 // ── Small reusable primitives ───────────────────────────────────────────────
@@ -116,7 +88,6 @@ function Toggle({
           borderRadius: "50%",
           backgroundColor: "#FFFFFF",
           boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
-          transition: "transform 0.15s ease",
         }}
       />
     </button>
@@ -162,7 +133,6 @@ function Segmented<T extends string>({
               borderRadius: 6,
               padding: "5px 12px",
               cursor: "pointer",
-              transition: "background-color 0.12s ease, color 0.12s ease",
             }}
           >
             {isActive && (
@@ -233,6 +203,75 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+function Stepper({
+  value,
+  min,
+  max,
+  onChange,
+  accent,
+  label,
+}: {
+  value: number
+  min: number
+  max: number
+  onChange: (v: number) => void
+  accent: string
+  label: string
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => onChange(Math.max(min, value - 1))}
+        aria-label={`Decrease ${label}`}
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: 6,
+          background: "#EDE9E2",
+          border: "none",
+          cursor: "pointer",
+          fontSize: 16,
+          color: "#2C2A27",
+          lineHeight: 1,
+        }}
+      >
+        −
+      </button>
+      <span
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: "#1C1B19",
+          fontFamily: "system-ui, sans-serif",
+          width: 44,
+          textAlign: "center",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {value}
+        <span style={{ fontSize: 11, color: "#9A9590", marginLeft: 2 }}>m</span>
+      </span>
+      <button
+        onClick={() => onChange(Math.min(max, value + 1))}
+        aria-label={`Increase ${label}`}
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: 6,
+          background: accent,
+          border: "none",
+          cursor: "pointer",
+          fontSize: 16,
+          color: "#FFFFFF",
+          lineHeight: 1,
+        }}
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
 const textInputStyle: React.CSSProperties = {
   fontSize: 13.5,
   color: "#1C1B19",
@@ -249,12 +288,18 @@ const textInputStyle: React.CSSProperties = {
 export function SettingsModal({
   open,
   settings,
+  email,
   onChange,
   onClose,
-  onReset,
+  onUploadAvatar,
+  onSignOut,
+  onDeleteAccount,
+  avatarUploading = false,
 }: SettingsModalProps) {
-  const [category, setCategory] = useState<CategoryId>("general")
-  const dialogRef = useRef<HTMLDivElement>(null)
+  const [category, setCategory] = useState<CategoryId>("profile")
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   // Close on Escape
   useEffect(() => {
@@ -269,16 +314,31 @@ export function SettingsModal({
     return () => window.removeEventListener("keydown", onKey, true)
   }, [open, onClose])
 
+  // Reset the delete confirmation whenever the modal opens/closes or tab changes
+  useEffect(() => {
+    setConfirmDelete(false)
+  }, [open, category])
+
   const set = useCallback(
-    <K extends keyof Settings>(key: K, value: Settings[K]) => {
+    <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
       onChange({ ...settings, [key]: value })
     },
     [settings, onChange],
   )
 
+  const handleFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      e.target.value = ""
+      if (file) await onUploadAvatar(file)
+    },
+    [onUploadAvatar],
+  )
+
   if (!open) return null
 
-  const accent = settings.accent
+  const accent = settings.accentColor
+  const initial = (settings.displayName.trim().charAt(0) || email.charAt(0) || "H").toUpperCase()
 
   return (
     <div
@@ -299,7 +359,6 @@ export function SettingsModal({
       }}
     >
       <div
-        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Settings"
@@ -368,22 +427,6 @@ export function SettingsModal({
               )
             })}
           </div>
-
-          <button
-            onClick={onReset}
-            className="icon-btn mt-auto flex items-center justify-center rounded-lg"
-            style={{
-              padding: "8px 10px",
-              fontSize: 12.5,
-              fontFamily: "system-ui, sans-serif",
-              fontWeight: 500,
-              color: "#9A9590",
-              background: "transparent",
-              border: "1px solid #E2DDD5",
-            }}
-          >
-            Reset to defaults
-          </button>
         </nav>
 
         {/* Content */}
@@ -411,80 +454,112 @@ export function SettingsModal({
             className="flex-1 overflow-y-auto editor-scroll"
             style={{ padding: "10px 22px 22px" }}
           >
-            {/* GENERAL */}
-            {category === "general" && (
+            {/* PROFILE */}
+            {category === "profile" && (
               <div className="flex flex-col">
-                <div className="flex items-center gap-3.5" style={{ padding: "16px 0 6px" }}>
-                  <div
-                    aria-hidden="true"
-                    className="flex items-center justify-center"
+                <div className="flex items-center gap-4" style={{ padding: "16px 0 6px" }}>
+                  {/* Avatar with upload */}
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    aria-label="Upload profile photo"
+                    className="relative flex items-center justify-center"
                     style={{
-                      width: 52,
-                      height: 52,
+                      width: 64,
+                      height: 64,
                       borderRadius: "50%",
-                      background: accent,
+                      background: settings.avatarUrl ? "transparent" : accent,
                       color: "#FAF9F7",
-                      fontSize: 22,
+                      fontSize: 26,
                       fontWeight: 700,
                       fontFamily: "'Georgia', serif",
                       flexShrink: 0,
+                      border: "none",
+                      cursor: "pointer",
+                      overflow: "hidden",
                     }}
                   >
-                    {settings.name.trim().charAt(0).toUpperCase() || "H"}
-                  </div>
+                    {settings.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={settings.avatarUrl || "/placeholder.svg"}
+                        alt="Your profile photo"
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      initial
+                    )}
+                    <span
+                      aria-hidden="true"
+                      className="flex items-center justify-center"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        background: "rgba(28,27,25,0.42)",
+                        opacity: avatarUploading ? 1 : 0,
+                        transition: "opacity 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
+                      onMouseLeave={(e) =>
+                        ((e.currentTarget as HTMLElement).style.opacity = avatarUploading ? "1" : "0")
+                      }
+                    >
+                      {avatarUploading ? (
+                        <Loader2 size={20} className="animate-spin" color="#FFFFFF" />
+                      ) : (
+                        <Camera size={20} color="#FFFFFF" />
+                      )}
+                    </span>
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFile}
+                    className="sr-only"
+                    aria-hidden="true"
+                  />
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 15, fontWeight: 600, color: "#1C1B19" }}>
-                      {settings.name || "Your name"}
+                      {settings.displayName || "Your name"}
                     </p>
-                    <p style={{ fontSize: 13, color: "#9A9590" }}>{settings.email}</p>
+                    <p style={{ fontSize: 13, color: "#9A9590" }}>{email}</p>
+                    <button
+                      onClick={() => fileRef.current?.click()}
+                      style={{
+                        fontSize: 12.5,
+                        color: accent,
+                        fontWeight: 600,
+                        marginTop: 4,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      {settings.avatarUrl ? "Change photo" : "Upload photo"}
+                    </button>
                   </div>
                 </div>
 
                 <div style={{ height: 12 }} />
                 <SectionTitle>Profile</SectionTitle>
-                <Row title="Display name" description="Shown across your workspace.">
+                <Row title="Display name" description="Shown in the sidebar and greetings.">
                   <input
                     type="text"
-                    value={settings.name}
-                    onChange={(e) => set("name", e.target.value)}
+                    value={settings.displayName}
+                    onChange={(e) => set("displayName", e.target.value)}
                     aria-label="Display name"
+                    placeholder="Your name"
                     style={textInputStyle}
                   />
                 </Row>
-                <Row title="Email" description="Used for account and sync.">
+                <Row title="Email" description="Tied to your account. Read-only.">
                   <input
                     type="email"
-                    value={settings.email}
-                    onChange={(e) => set("email", e.target.value)}
+                    value={email}
+                    readOnly
                     aria-label="Email"
-                    style={textInputStyle}
-                  />
-                </Row>
-
-                <div style={{ height: 18 }} />
-                <SectionTitle>Behavior</SectionTitle>
-                <Row title="Startup view" description="Where Hagba opens each session.">
-                  <Segmented
-                    ariaLabel="Startup view"
-                    accent={accent}
-                    value={settings.startupView}
-                    onChange={(v) => set("startupView", v)}
-                    options={[
-                      { value: "inbox", label: "Inbox" },
-                      { value: "notes", label: "Notes" },
-                      { value: "todos", label: "To-Dos" },
-                    ]}
-                  />
-                </Row>
-                <Row
-                  title="Confirm before deleting"
-                  description="Ask for confirmation when removing notes or tasks."
-                >
-                  <Toggle
-                    label="Confirm before deleting"
-                    accent={accent}
-                    checked={settings.confirmDelete}
-                    onChange={(v) => set("confirmDelete", v)}
+                    style={{ ...textInputStyle, color: "#9A9590", cursor: "not-allowed" }}
                   />
                 </Row>
               </div>
@@ -494,17 +569,45 @@ export function SettingsModal({
             {category === "appearance" && (
               <div className="flex flex-col">
                 <div style={{ height: 10 }} />
-                <SectionTitle>Accent color</SectionTitle>
+                <SectionTitle>Editor</SectionTitle>
+                <Row title="Font size" description="Body text size in the note editor.">
+                  <Segmented
+                    ariaLabel="Editor font size"
+                    accent={accent}
+                    value={settings.fontSize}
+                    onChange={(v) => set("fontSize", v)}
+                    options={[
+                      { value: "small", label: "Small" },
+                      { value: "medium", label: "Medium" },
+                      { value: "large", label: "Large" },
+                    ]}
+                  />
+                </Row>
+                <Row title="Editor font" description="Typeface used for writing notes.">
+                  <Segmented
+                    ariaLabel="Editor font"
+                    accent={accent}
+                    value={settings.editorFont}
+                    onChange={(v) => set("editorFont", v)}
+                    options={[
+                      { value: "serif", label: "Serif" },
+                      { value: "sans", label: "Sans" },
+                    ]}
+                  />
+                </Row>
+
+                <div style={{ height: 18 }} />
+                <SectionTitle>Sidebar accent</SectionTitle>
                 <p style={{ fontSize: 12.5, color: "#9A9590", margin: "2px 0 12px", lineHeight: 1.45 }}>
-                  Applies to highlights, the focus ring, and the editor caret.
+                  Sets the active highlight color in the left sidebar.
                 </p>
                 <div className="flex items-center gap-3" style={{ paddingBottom: 8 }}>
                   {ACCENTS.map((a) => {
-                    const isActive = settings.accent.toLowerCase() === a.hex.toLowerCase()
+                    const isActive = settings.accentColor.toLowerCase() === a.hex.toLowerCase()
                     return (
                       <button
                         key={a.id}
-                        onClick={() => set("accent", a.hex)}
+                        onClick={() => set("accentColor", a.hex)}
                         aria-label={a.label}
                         aria-pressed={isActive}
                         title={a.label}
@@ -516,133 +619,14 @@ export function SettingsModal({
                           background: a.hex,
                           border: "none",
                           cursor: "pointer",
-                          boxShadow: isActive
-                            ? `0 0 0 2px #FAF9F7, 0 0 0 4px ${a.hex}`
-                            : "none",
-                          transition: "box-shadow 0.12s ease",
+                          boxShadow: isActive ? `0 0 0 2px #FAF9F7, 0 0 0 4px ${a.hex}` : "none",
                         }}
                       >
-                        {isActive && (
-                          <Check size={16} strokeWidth={3} color="#FFFFFF" aria-hidden="true" />
-                        )}
+                        {isActive && <Check size={16} strokeWidth={3} color="#FFFFFF" aria-hidden="true" />}
                       </button>
                     )
                   })}
                 </div>
-
-                <div style={{ height: 20 }} />
-                <SectionTitle>Preview</SectionTitle>
-                <div
-                  style={{
-                    marginTop: 8,
-                    border: "1px solid #E2DDD5",
-                    borderRadius: 10,
-                    padding: 16,
-                    background: "#FFFEFA",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontFamily: "'iA Writer Quattro S', Georgia, serif",
-                      fontSize: 16,
-                      fontWeight: 700,
-                      color: "#1C1B19",
-                      marginBottom: 6,
-                    }}
-                  >
-                    A calm place to think
-                  </p>
-                  <p
-                    style={{
-                      fontFamily: "'iA Writer Quattro S', Georgia, serif",
-                      fontSize: 14,
-                      color: "#2C2A27",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    Capture a thought, then{" "}
-                    <span style={{ color: accent, fontWeight: 600 }}>highlight</span> what matters.
-                  </p>
-                  <div className="flex items-center gap-2" style={{ marginTop: 12 }}>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: "#FAF9F7",
-                        background: accent,
-                        borderRadius: 999,
-                        padding: "3px 10px",
-                      }}
-                    >
-                      Accent
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: accent,
-                        border: `1px solid ${accent}`,
-                        borderRadius: 999,
-                        padding: "3px 10px",
-                      }}
-                    >
-                      Outline
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* EDITOR */}
-            {category === "editor" && (
-              <div className="flex flex-col">
-                <div style={{ height: 10 }} />
-                <SectionTitle>Typography</SectionTitle>
-                <Row title="Font size" description="Text size in the note editor.">
-                  <Segmented
-                    ariaLabel="Editor font size"
-                    accent={accent}
-                    value={settings.editorFontSize}
-                    onChange={(v) => set("editorFontSize", v)}
-                    options={[
-                      { value: "small", label: "Small" },
-                      { value: "medium", label: "Medium" },
-                      { value: "large", label: "Large" },
-                    ]}
-                  />
-                </Row>
-                <Row title="Line spacing" description="Vertical rhythm of long-form prose.">
-                  <Segmented
-                    ariaLabel="Line spacing"
-                    accent={accent}
-                    value={settings.lineSpacing}
-                    onChange={(v) => set("lineSpacing", v)}
-                    options={[
-                      { value: "compact", label: "Compact" },
-                      { value: "normal", label: "Normal" },
-                      { value: "relaxed", label: "Relaxed" },
-                    ]}
-                  />
-                </Row>
-
-                <div style={{ height: 18 }} />
-                <SectionTitle>Writing</SectionTitle>
-                <Row title="Spellcheck" description="Underline misspelled words while typing.">
-                  <Toggle
-                    label="Spellcheck"
-                    accent={accent}
-                    checked={settings.spellcheck}
-                    onChange={(v) => set("spellcheck", v)}
-                  />
-                </Row>
-                <Row title="Word count" description="Show live word count in the editor footer.">
-                  <Toggle
-                    label="Word count"
-                    accent={accent}
-                    checked={settings.showWordCount}
-                    onChange={(v) => set("showWordCount", v)}
-                  />
-                </Row>
               </div>
             )}
 
@@ -650,126 +634,181 @@ export function SettingsModal({
             {category === "pomodoro" && (
               <div className="flex flex-col">
                 <div style={{ height: 10 }} />
-                <SectionTitle>Focus Timer</SectionTitle>
-                <Row title="Focus length" description="Minutes per focus session.">
-                  <Segmented
-                    ariaLabel="Focus length"
+                <SectionTitle>Durations</SectionTitle>
+                <Row title="Focus" description="Length of each focus session.">
+                  <Stepper
+                    label="focus duration"
                     accent={accent}
-                    value={String(settings.pomodoroFocus)}
-                    onChange={(v) => set("pomodoroFocus", Number(v))}
-                    options={[
-                      { value: "15", label: "15m" },
-                      { value: "25", label: "25m" },
-                      { value: "50", label: "50m" },
-                    ]}
+                    min={5}
+                    max={90}
+                    value={settings.pomodoroFocus}
+                    onChange={(v) => set("pomodoroFocus", v)}
                   />
                 </Row>
-                <Row title="Break length" description="Minutes per short break.">
-                  <Segmented
-                    ariaLabel="Break length"
+                <Row title="Short break" description="Break after each focus session.">
+                  <Stepper
+                    label="short break"
                     accent={accent}
-                    value={String(settings.pomodoroBreak)}
-                    onChange={(v) => set("pomodoroBreak", Number(v))}
-                    options={[
-                      { value: "5", label: "5m" },
-                      { value: "10", label: "10m" },
-                      { value: "15", label: "15m" },
-                    ]}
+                    min={1}
+                    max={30}
+                    value={settings.pomodoroShortBreak}
+                    onChange={(v) => set("pomodoroShortBreak", v)}
                   />
+                </Row>
+                <Row title="Long break" description="Break after four focus sessions.">
+                  <Stepper
+                    label="long break"
+                    accent={accent}
+                    min={5}
+                    max={60}
+                    value={settings.pomodoroLongBreak}
+                    onChange={(v) => set("pomodoroLongBreak", v)}
+                  />
+                </Row>
+
+                <div style={{ height: 18 }} />
+                <SectionTitle>Sound</SectionTitle>
+                <Row title="Chime on session end" description="Play a soft chime when a timer completes.">
+                  <button
+                    onClick={() => set("soundEnabled", !settings.soundEnabled)}
+                    className="flex items-center gap-2"
+                    aria-pressed={settings.soundEnabled}
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    {settings.soundEnabled ? (
+                      <Volume2 size={16} style={{ color: accent }} />
+                    ) : (
+                      <VolumeX size={16} style={{ color: "#B8B4AC" }} />
+                    )}
+                    <Toggle
+                      label="Sound"
+                      accent={accent}
+                      checked={settings.soundEnabled}
+                      onChange={(v) => set("soundEnabled", v)}
+                    />
+                  </button>
                 </Row>
               </div>
             )}
 
-            {/* SHORTCUTS */}
-            {category === "shortcuts" && (
+            {/* ACCOUNT */}
+            {category === "account" && (
               <div className="flex flex-col">
                 <div style={{ height: 10 }} />
-                <SectionTitle>Keyboard shortcuts</SectionTitle>
-                <div style={{ height: 6 }} />
-                {[
-                  { keys: ["⌘", "K"], action: "Quick capture" },
-                  { keys: ["⌘", "N"], action: "New note" },
-                  { keys: ["⌘", "F"], action: "Search notes" },
-                  { keys: ["⌘", ","], action: "Open settings" },
-                  { keys: ["Esc"], action: "Close dialog" },
-                  { keys: ["/"], action: "Slash command menu" },
-                  { keys: ["#"], action: "Insert a tag" },
-                ].map((s) => (
-                  <div
-                    key={s.action}
-                    className="flex items-center justify-between"
-                    style={{ padding: "10px 0", borderBottom: "1px solid #EDE9E2" }}
-                  >
-                    <span style={{ fontSize: 13.5, color: "#2C2A27" }}>{s.action}</span>
-                    <span className="flex items-center gap-1">
-                      {s.keys.map((k) => (
-                        <kbd
-                          key={k}
+                <SectionTitle>Session</SectionTitle>
+                <div style={{ height: 8 }} />
+                <button
+                  onClick={onSignOut}
+                  className="flex items-center gap-2.5 rounded-lg"
+                  style={{
+                    padding: "10px 14px",
+                    fontSize: 13.5,
+                    fontWeight: 500,
+                    color: "#2C2A27",
+                    background: "#F0EDE8",
+                    border: "1px solid #E2DDD5",
+                    cursor: "pointer",
+                    width: "fit-content",
+                  }}
+                >
+                  <LogOut size={16} strokeWidth={1.9} aria-hidden="true" />
+                  Sign out
+                </button>
+
+                <div style={{ height: 28 }} />
+                <SectionTitle>Danger zone</SectionTitle>
+                <div
+                  style={{
+                    marginTop: 10,
+                    border: "1px solid #EAD4CF",
+                    background: "#FCF4F2",
+                    borderRadius: 10,
+                    padding: 16,
+                  }}
+                >
+                  <p style={{ fontSize: 13.5, fontWeight: 600, color: "#A03325" }}>
+                    Delete account
+                  </p>
+                  <p style={{ fontSize: 12.5, color: "#B06A5E", marginTop: 4, lineHeight: 1.5 }}>
+                    Permanently delete your account and all notes, tasks, and projects. This cannot be
+                    undone.
+                  </p>
+
+                  {!confirmDelete ? (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="flex items-center gap-2"
+                      style={{
+                        marginTop: 12,
+                        padding: "8px 14px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#FFFFFF",
+                        background: "#C0392B",
+                        border: "none",
+                        borderRadius: 7,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Trash2 size={15} strokeWidth={2} aria-hidden="true" />
+                      Delete account
+                    </button>
+                  ) : (
+                    <div style={{ marginTop: 14 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "#A03325", marginBottom: 10 }}>
+                        Are you absolutely sure?
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={deleting}
+                          onClick={async () => {
+                            setDeleting(true)
+                            try {
+                              await onDeleteAccount()
+                            } finally {
+                              setDeleting(false)
+                            }
+                          }}
+                          className="flex items-center gap-2"
                           style={{
-                            background: "#EDE9E2",
-                            border: "1px solid #D8D4CC",
-                            borderRadius: 5,
-                            padding: "2px 7px",
-                            fontSize: 12,
-                            color: "#5E5A55",
-                            fontFamily: "system-ui, sans-serif",
-                            minWidth: 22,
-                            textAlign: "center",
+                            padding: "8px 14px",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "#FFFFFF",
+                            background: "#C0392B",
+                            border: "none",
+                            borderRadius: 7,
+                            cursor: deleting ? "not-allowed" : "pointer",
+                            opacity: deleting ? 0.7 : 1,
                           }}
                         >
-                          {k}
-                        </kbd>
-                      ))}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* ABOUT */}
-            {category === "about" && (
-              <div className="flex flex-col items-center" style={{ padding: "32px 0", textAlign: "center" }}>
-                <div
-                  aria-hidden="true"
-                  className="flex items-center justify-center"
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 18,
-                    background: accent,
-                    marginBottom: 16,
-                  }}
-                >
-                  <span
-                    style={{
-                      color: "#FAF9F7",
-                      fontSize: 30,
-                      fontWeight: 700,
-                      fontFamily: "'Georgia', serif",
-                      lineHeight: 1,
-                      letterSpacing: "-0.02em",
-                    }}
-                  >
-                    H
-                  </span>
+                          {deleting ? (
+                            <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Trash2 size={15} strokeWidth={2} aria-hidden="true" />
+                          )}
+                          {deleting ? "Deleting…" : "Yes, delete everything"}
+                        </button>
+                        <button
+                          disabled={deleting}
+                          onClick={() => setConfirmDelete(false)}
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: 13,
+                            fontWeight: 500,
+                            color: "#5E5A55",
+                            background: "#FAF9F7",
+                            border: "1px solid #E2DDD5",
+                            borderRadius: 7,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <p style={{ fontSize: 18, fontWeight: 700, color: "#1C1B19" }}>Hagba</p>
-                <p style={{ fontSize: 13, color: "#9A9590", marginTop: 2 }}>Version 1.0.0</p>
-                <p
-                  style={{
-                    fontSize: 13.5,
-                    color: "#787470",
-                    marginTop: 16,
-                    maxWidth: 320,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  A calm space to capture thoughts, focus, and get things done. Notes, tasks, and
-                  tags in one quiet place.
-                </p>
-                <p style={{ fontSize: 12, color: "#B8B4AC", marginTop: 24 }}>
-                  Crafted with care · {new Date().getFullYear()}
-                </p>
               </div>
             )}
           </div>

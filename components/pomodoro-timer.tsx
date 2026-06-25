@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
-import { Play, Pause, RotateCcw, Settings, X, Volume2, VolumeX } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Play, Pause, RotateCcw, X } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type Phase = "idle" | "focus" | "short-break" | "long-break"
 
-interface TimerSettings {
+export interface TimerSettings {
   focusMins: number
   shortBreakMins: number
   longBreakMins: number
@@ -116,125 +116,6 @@ function ProgressRing({ progress, phase, size = 28, strokeWidth = 2.5 }: RingPro
   )
 }
 
-// ── Settings panel ────────────────────────────────────────────────────────
-interface SettingsPanelProps {
-  settings: TimerSettings
-  onChange: (s: TimerSettings) => void
-  onClose: () => void
-}
-
-function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProps) {
-  const row = (
-    label: string,
-    field: keyof Pick<TimerSettings, "focusMins" | "shortBreakMins" | "longBreakMins">,
-    min: number,
-    max: number
-  ) => (
-    <div className="flex items-center justify-between gap-3">
-      <label
-        style={{
-          fontSize: 12,
-          color: "#787470",
-          fontFamily: "system-ui, sans-serif",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {label}
-      </label>
-      <div className="flex items-center gap-1.5">
-        <button
-          onClick={() => onChange({ ...settings, [field]: Math.max(min, settings[field] - 1) })}
-          style={{
-            width: 20, height: 20, borderRadius: 4,
-            background: "#EDE9E2", border: "none", cursor: "pointer",
-            fontSize: 13, color: "#2C2A27", display: "flex",
-            alignItems: "center", justifyContent: "center", lineHeight: 1,
-          }}
-          aria-label={`Decrease ${label}`}
-        >−</button>
-        <span style={{ fontSize: 12, color: "#1C1B19", fontFamily: "system-ui", width: 26, textAlign: "center", fontWeight: 600 }}>
-          {settings[field]}
-        </span>
-        <button
-          onClick={() => onChange({ ...settings, [field]: Math.min(max, settings[field] + 1) })}
-          style={{
-            width: 20, height: 20, borderRadius: 4,
-            background: "#EDE9E2", border: "none", cursor: "pointer",
-            fontSize: 13, color: "#2C2A27", display: "flex",
-            alignItems: "center", justifyContent: "center", lineHeight: 1,
-          }}
-          aria-label={`Increase ${label}`}
-        >+</button>
-      </div>
-    </div>
-  )
-
-  return (
-    <div
-      role="dialog"
-      aria-label="Timer settings"
-      style={{
-        position: "absolute",
-        top: "calc(100% + 8px)",
-        right: 0,
-        width: 220,
-        background: "#FFFFFF",
-        borderRadius: 10,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)",
-        border: "1px solid #E8E4DE",
-        padding: "14px 16px",
-        zIndex: 200,
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#1C1B19", fontFamily: "system-ui" }}>
-          Timer Settings
-        </span>
-        <button
-          onClick={onClose}
-          aria-label="Close settings"
-          style={{ background: "none", border: "none", cursor: "pointer", color: "#9A9590", padding: 2 }}
-        >
-          <X size={13} />
-        </button>
-      </div>
-
-      {/* Duration rows */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {row("Focus", "focusMins", 5, 90)}
-        {row("Short break", "shortBreakMins", 1, 30)}
-        {row("Long break", "longBreakMins", 5, 60)}
-      </div>
-
-      {/* Divider */}
-      <div style={{ borderTop: "1px solid #EDE9E2" }} />
-
-      {/* Sound toggle */}
-      <button
-        onClick={() => onChange({ ...settings, soundEnabled: !settings.soundEnabled })}
-        className="flex items-center gap-2"
-        style={{
-          background: "none", border: "none", cursor: "pointer",
-          padding: 0, textAlign: "left",
-        }}
-        aria-pressed={settings.soundEnabled}
-      >
-        {settings.soundEnabled
-          ? <Volume2 size={13} style={{ color: "#3DAA6E", flexShrink: 0 }} />
-          : <VolumeX size={13} style={{ color: "#B8B4AC", flexShrink: 0 }} />
-        }
-        <span style={{ fontSize: 12, color: "#787470", fontFamily: "system-ui" }}>
-          {settings.soundEnabled ? "Sound on" : "Sound off"}
-        </span>
-      </button>
-    </div>
-  )
-}
-
 // ── Notification banner ───────────────────────────────────────────────────
 interface BannerProps {
   message: string
@@ -284,19 +165,20 @@ function NotificationBanner({ message, onDismiss }: BannerProps) {
 // ── Main component ────────────────────────────────────────────────────────
 interface PomodoroTimerProps {
   noteTitle: string
+  /** Durations + sound, synced from the user's global settings */
+  timerSettings?: TimerSettings
 }
 
-export function PomodoroTimer({ noteTitle }: PomodoroTimerProps) {
-  const [settings, setSettings] = useState<TimerSettings>(DEFAULT_SETTINGS)
+export function PomodoroTimer({ noteTitle, timerSettings }: PomodoroTimerProps) {
+  const settings = timerSettings ?? DEFAULT_SETTINGS
   const [phase, setPhase] = useState<Phase>("idle")
-  const [secondsLeft, setSecondsLeft] = useState(DEFAULT_SETTINGS.focusMins * 60)
+  const [secondsLeft, setSecondsLeft] = useState(settings.focusMins * 60)
   const [running, setRunning] = useState(false)
   const [sessionCount, setSessionCount] = useState(0)  // completed focus sessions
   const [focusLabel, setFocusLabel] = useState("")
-  const [showSettings, setShowSettings] = useState(false)
   const [showHover, setShowHover] = useState(false)
   const [notification, setNotification] = useState<string | null>(null)
-  const settingsRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Total seconds for current phase
@@ -331,9 +213,8 @@ export function PomodoroTimer({ noteTitle }: PomodoroTimerProps) {
       setSessionCount(newCount)
       const isLong = newCount % 4 === 0
       const nextPhase: Phase = isLong ? "long-break" : "short-break"
-      const msg = isLong
-        ? "Focus session complete. Take a 15 min long break."
-        : "Focus session complete. Take a 5 min break."
+      const mins = isLong ? settings.longBreakMins : settings.shortBreakMins
+      const msg = `Focus session complete! Take a ${mins} min ${isLong ? "long " : ""}break.`
       setNotification(msg)
       setPhase(nextPhase)
       setSecondsLeft(phaseTotal(nextPhase, settings))
@@ -367,19 +248,7 @@ export function PomodoroTimer({ noteTitle }: PomodoroTimerProps) {
     setFocusLabel("")
   }
 
-  // Close settings on outside click
-  useEffect(() => {
-    if (!showSettings) return
-    function handler(e: MouseEvent) {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
-        setShowSettings(false)
-      }
-    }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [showSettings])
-
-  // Reset seconds when settings change while idle
+  // Keep the idle countdown in sync with the user's focus duration setting
   useEffect(() => {
     if (phase === "idle") setSecondsLeft(settings.focusMins * 60)
   }, [settings.focusMins, phase])
@@ -397,7 +266,7 @@ export function PomodoroTimer({ noteTitle }: PomodoroTimerProps) {
     <>
       {/* ── Widget ── */}
       <div
-        ref={settingsRef}
+        ref={containerRef}
         onMouseEnter={() => setShowHover(true)}
         onMouseLeave={() => setShowHover(false)}
         style={{ position: "relative", display: "flex", alignItems: "center", gap: 7 }}
@@ -424,7 +293,7 @@ export function PomodoroTimer({ noteTitle }: PomodoroTimerProps) {
         <button
           onClick={running ? pauseTimer : startTimer}
           aria-label={running ? "Pause focus timer" : (phase === "idle" ? "Start focus timer" : "Resume timer")}
-          title={running ? "Pause" : (phase === "idle" ? "Start 25 min focus" : "Resume")}
+          title={running ? "Pause" : (phase === "idle" ? `Start ${settings.focusMins} min focus` : "Resume")}
           style={{
             display: "flex", alignItems: "center", gap: 6,
             background: "none", border: "none", cursor: "pointer",
@@ -460,25 +329,6 @@ export function PomodoroTimer({ noteTitle }: PomodoroTimerProps) {
           }
         </button>
 
-        {/* Settings gear — shows on hover */}
-        {showHover && (
-          <button
-            onClick={() => setShowSettings((p) => !p)}
-            aria-label="Timer settings"
-            aria-expanded={showSettings}
-            className="icon-btn flex items-center justify-center"
-            style={{
-              width: 22, height: 22, borderRadius: 6,
-              background: showSettings ? "#EDE9E2" : "none",
-              border: "none", cursor: "pointer",
-              color: "#B8B4AC",
-              animation: "fadeIn 0.15s ease",
-            }}
-          >
-            <Settings size={12} strokeWidth={1.75} />
-          </button>
-        )}
-
         {/* Focus label under the widget */}
         {focusLabel && phase === "focus" && (
           <div
@@ -500,18 +350,6 @@ export function PomodoroTimer({ noteTitle }: PomodoroTimerProps) {
           >
             Focusing on: {focusLabel}
           </div>
-        )}
-
-        {/* Settings dropdown */}
-        {showSettings && (
-          <SettingsPanel
-            settings={settings}
-            onChange={(s) => {
-              setSettings(s)
-              setShowSettings(false)
-            }}
-            onClose={() => setShowSettings(false)}
-          />
         )}
       </div>
 

@@ -15,3 +15,13 @@ export const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_SUPABASE_PUBLISHABLE_KEY ||
   ""
+
+/**
+ * Service-role key — SERVER ONLY. Never import this into client components.
+ * Used by route handlers (e.g. account deletion) that need admin privileges.
+ */
+export const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_SUPABASE_SECRET_KEY ||
+  ""
