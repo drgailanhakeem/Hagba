@@ -136,3 +136,181 @@
 /* ─── Transitions ─── */
 .note-card { transition: background-color 0.1s ease; }
 .icon-btn   { transition: color 0.1s ease, background-color 0.1s ease; }
+
+/* ─── ProseMirror / Tiptap reset ─── */
+.ProseMirror { outline: none; }
+
+/* ─── Rich editor prose styles ─── */
+.bear-editor {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
+  font-size: 17px;
+  line-height: 1.8;
+  color: #2C2A27;
+  caret-color: #D97B45;
+}
+
+.bear-editor h1 {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #1C1B19;
+  margin: 1.4em 0 0.4em;
+}
+.bear-editor h1:first-child { margin-top: 0; }
+
+.bear-editor h2 {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #1C1B19;
+  margin: 1.4em 0 0.35em;
+}
+
+.bear-editor h3 {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #1C1B19;
+  margin: 1.2em 0 0.3em;
+}
+
+.bear-editor p {
+  margin: 0 0 0.15em;
+}
+
+.bear-editor p + p {
+  margin-top: 0;
+}
+
+.bear-editor strong { color: #1C1B19; }
+.bear-editor em { font-style: italic; }
+
+.bear-editor code {
+  font-family: 'Geist Mono', 'SF Mono', 'Menlo', monospace;
+  font-size: 14px;
+  background: #EDEAE3;
+  color: #C0392B;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.bear-editor ul,
+.bear-editor ol {
+  padding-left: 1.6em;
+  margin: 0.3em 0 0.5em;
+}
+.bear-editor li { margin: 0.1em 0; }
+.bear-editor li p { margin: 0; }
+
+/* ─── Task list checkboxes ─── */
+.bear-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.bear-editor ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0.2em 0;
+}
+
+.bear-editor ul[data-type="taskList"] li > label {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-top: 3px;
+  cursor: pointer;
+}
+
+.bear-editor ul[data-type="taskList"] li > label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #B8B4AC;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  background: transparent;
+  transition: border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.bear-editor ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+  background: #3DAA6E;
+  border-color: #3DAA6E;
+}
+
+.bear-editor ul[data-type="taskList"] li > label input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 1.5px;
+  left: 4.5px;
+  width: 5px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+.bear-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: #B8B4AC;
+  text-decoration: line-through;
+  text-decoration-color: #C4C0B8;
+}
+
+.bear-editor ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+/* ─── Blockquote ─── */
+.bear-editor blockquote {
+  border-left: 3px solid #D97B45;
+  margin: 0.6em 0;
+  padding: 2px 0 2px 1em;
+  color: #787470;
+  font-style: italic;
+}
+.bear-editor blockquote p { margin: 0; }
+
+/* ─── Horizontal rule ─── */
+.bear-editor hr {
+  border: none;
+  border-top: 1px solid #E2DDD5;
+  margin: 1.5em 0;
+}
+
+/* ─── Placeholder ─── */
+.bear-editor .is-editor-empty::before {
+  content: attr(data-placeholder);
+  color: #C8C4BC;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ─── Slash menu scrollbar ─── */
+.slash-menu {
+  scrollbar-width: thin;
+  scrollbar-color: #D4CFC7 transparent;
+}
+.slash-menu::-webkit-scrollbar { width: 4px; }
+.slash-menu::-webkit-scrollbar-thumb {
+  background-color: #D4CFC7;
+  border-radius: 2px;
+}
+
+/* ─── Tippy reset for slash menu ─── */
+.tippy-box[data-theme~="slash"] .tippy-content { padding: 0; }
+
+/* Autosave status animation */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.save-status { animation: fadeInUp 0.2s ease; }

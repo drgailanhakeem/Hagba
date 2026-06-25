@@ -1,0 +1,201 @@
+/* ──────────────────────────────────────────────────────────────
+   Bear editor prose styles
+   Imported directly by rich-editor.tsx so they're always bundled.
+────────────────────────────────────────────────────────────── */
+
+/* ProseMirror base */
+.ProseMirror {
+  outline: none;
+}
+
+.bear-editor {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif !important;
+  font-size: 17px !important;
+  line-height: 1.8 !important;
+  color: #2C2A27 !important;
+  caret-color: #D97B45;
+}
+
+/* Headings */
+.bear-editor h1 {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif !important;
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  color: #1C1B19 !important;
+  margin: 1.4em 0 0.4em !important;
+}
+.bear-editor h1:first-child {
+  margin-top: 0 !important;
+}
+
+.bear-editor h2 {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  color: #1C1B19 !important;
+  margin: 1.5em 0 0.4em !important;
+}
+.bear-editor h2:first-child {
+  margin-top: 0 !important;
+}
+
+.bear-editor h3 {
+  font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  color: #1C1B19 !important;
+  margin: 1.3em 0 0.3em !important;
+}
+
+/* Paragraphs */
+.bear-editor p {
+  margin: 0 0 0.3em !important;
+}
+
+/* Inline */
+.bear-editor strong {
+  color: #1C1B19;
+  font-weight: 600 !important;
+}
+.bear-editor em {
+  font-style: italic !important;
+}
+.bear-editor s {
+  text-decoration: line-through;
+  color: #B8B4AC;
+}
+
+/* Inline code */
+.bear-editor :not(pre) > code {
+  font-family: 'Geist Mono', 'SF Mono', 'Menlo', monospace !important;
+  font-size: 13.5px !important;
+  background: #EDEAE3 !important;
+  color: #C0392B !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
+  font-style: normal !important;
+}
+
+/* Lists */
+.bear-editor ul:not([data-type="taskList"]),
+.bear-editor ol {
+  padding-left: 1.7em !important;
+  margin: 0.3em 0 0.6em !important;
+}
+.bear-editor ul:not([data-type="taskList"]) li,
+.bear-editor ol li {
+  margin: 0.15em 0 !important;
+}
+.bear-editor li > p {
+  margin: 0 !important;
+}
+
+/* ─── Task list ─── */
+.bear-editor ul[data-type="taskList"] {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0.3em 0 0.6em !important;
+}
+
+.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  margin: 0.25em 0 !important;
+}
+
+/* The label wrapping the checkbox */
+.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > label {
+  display: flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+  margin-top: 4px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+/* Custom circular checkbox */
+.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  border: 1.5px solid #B8B4AC !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  position: relative !important;
+  background: transparent !important;
+  transition: border-color 0.15s, background 0.15s !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+}
+
+.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"]:checked {
+  background: #3DAA6E !important;
+  border-color: #3DAA6E !important;
+}
+
+.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > label input[type="checkbox"]:checked::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 1.5px !important;
+  left: 4.5px !important;
+  width: 5px !important;
+  height: 9px !important;
+  border: 2px solid #fff !important;
+  border-top: none !important;
+  border-left: none !important;
+  transform: rotate(45deg) !important;
+}
+
+/* Completed task text — strikethrough */
+.bear-editor ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div,
+.bear-editor ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] > div p {
+  color: #B8B4AC !important;
+  text-decoration: line-through !important;
+  text-decoration-color: #C4C0B8 !important;
+}
+
+.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > div {
+  flex: 1 !important;
+}
+.bear-editor ul[data-type="taskList"] li[data-type="taskItem"] > div > p {
+  margin: 0 !important;
+}
+
+/* Blockquote */
+.bear-editor blockquote {
+  border-left: 3px solid #D97B45 !important;
+  margin: 0.7em 0 !important;
+  padding: 2px 0 2px 1em !important;
+  color: #787470 !important;
+  font-style: italic !important;
+}
+.bear-editor blockquote p {
+  margin: 0 !important;
+}
+
+/* Horizontal rule */
+.bear-editor hr {
+  border: none !important;
+  border-top: 1px solid #E2DDD5 !important;
+  margin: 1.5em 0 !important;
+}
+
+/* Placeholder */
+.bear-editor.is-editor-empty::before,
+.bear-editor .is-editor-empty::before {
+  content: attr(data-placeholder);
+  color: #C8C4BC;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* Code block wrapper */
+.bear-editor .code-block-wrapper {
+  margin: 1.2em 0 !important;
+}
