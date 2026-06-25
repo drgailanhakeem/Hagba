@@ -113,10 +113,10 @@
 /* ─── Editor prose ─── */
 .editor-prose {
   font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
-  font-size: 17px;
-  line-height: 1.8;
+  font-size: var(--editor-font-size, 17px);
+  line-height: var(--editor-line-height, 1.8);
   color: #2C2A27;
-  caret-color: #D97B45;
+  caret-color: var(--color-bear-accent, #D97B45);
 }
 .editor-prose:focus { outline: none; }
 .editor-prose:empty::before {
@@ -128,7 +128,7 @@
 /* ─── Title input ─── */
 .title-input {
   font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
-  caret-color: #D97B45;
+  caret-color: var(--color-bear-accent, #D97B45);
 }
 .title-input:focus { outline: none; }
 .title-input::placeholder { color: #C8C4BC; }
@@ -143,10 +143,10 @@
 /* ─── Rich editor prose styles ─── */
 .bear-editor {
   font-family: 'iA Writer Quattro S', 'Georgia', 'Times New Roman', serif;
-  font-size: 17px;
-  line-height: 1.8;
+  font-size: var(--editor-font-size, 17px);
+  line-height: var(--editor-line-height, 1.8);
   color: #2C2A27;
-  caret-color: #D97B45;
+  caret-color: var(--color-bear-accent, #D97B45);
 }
 
 .bear-editor h1 {
@@ -270,7 +270,7 @@
 
 /* ─── Blockquote ─── */
 .bear-editor blockquote {
-  border-left: 3px solid #D97B45;
+  border-left: 3px solid var(--color-bear-accent, #D97B45);
   margin: 0.6em 0;
   padding: 2px 0 2px 1em;
   color: #787470;

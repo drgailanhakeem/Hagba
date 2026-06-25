@@ -19,6 +19,7 @@ import {
   type Task,
   type Project,
 } from "@/lib/todos"
+import { SettingsModal, DEFAULT_SETTINGS, type Settings } from "@/components/settings-modal"
 
 // ── Rich HTML seed content per note ────────────────────────────────────────
 export const NOTE_CONTENT: Record<string, string> = {
@@ -158,6 +159,25 @@ export default function Page() {
   const [activeNav, setActiveNav] = useState<"inbox" | "notes" | "todos" | "tags" | "search">("notes")
   const [captureOpen, setCaptureOpen] = useState(false)
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null)
+
+  // ── Settings state ──
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
+
+  // Apply live-preview settings (accent + editor typography) to the document root
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty("--color-bear-accent", settings.accent)
+    root.style.setProperty("--color-accent", settings.accent)
+    root.style.setProperty("--color-ring", settings.accent)
+    root.style.setProperty("--color-sidebar-ring", settings.accent)
+
+    const sizes = { small: "15px", medium: "17px", large: "19px" } as const
+    root.style.setProperty("--editor-font-size", sizes[settings.editorFontSize])
+
+    const spacing = { compact: "1.5", normal: "1.8", relaxed: "2.1" } as const
+    root.style.setProperty("--editor-line-height", spacing[settings.lineSpacing])
+  }, [settings])
 
   // ── To-do state ──
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS)
@@ -310,6 +330,10 @@ export default function Page() {
         e.preventDefault()
         setCaptureOpen((prev) => !prev)
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault()
+        setSettingsOpen((prev) => !prev)
+      }
       if (e.key === "Escape") {
         setCaptureOpen(false)
       }
@@ -380,6 +404,8 @@ export default function Page() {
         active={activeNav}
         onSelect={setActiveNav}
         inboxCount={inboxNotes.length}
+        onOpenSettings={() => setSettingsOpen(true)}
+        settingsOpen={settingsOpen}
       />
 
       {/* To-do mode takes over columns 2 + 3 */}
@@ -477,6 +503,15 @@ export default function Page() {
       />
         </>
       )}
+
+      {/* Settings modal (available from any view) */}
+      <SettingsModal
+        open={settingsOpen}
+        settings={settings}
+        onChange={setSettings}
+        onClose={() => setSettingsOpen(false)}
+        onReset={() => setSettings(DEFAULT_SETTINGS)}
+      />
     </div>
   )
 }
