@@ -15,6 +15,8 @@ interface NoteRow {
   preview: string
   tags: NoteTag[]
   is_inbox: boolean
+  is_favorite: boolean
+  is_public: boolean
   created_at: string
   updated_at: string
 }
@@ -170,6 +172,8 @@ function rowToNote(row: NoteRow): Note {
     date: formatNoteDate(row.updated_at ?? row.created_at),
     tags: Array.isArray(row.tags) ? row.tags : [],
     inInbox: row.is_inbox,
+    isFavorite: row.is_favorite ?? false,
+    isPublic: row.is_public ?? false,
     content: row.content,
   }
 }
@@ -217,7 +221,7 @@ export async function fetchNotes(db: DB): Promise<Note[]> {
 export async function insertNote(
   db: DB,
   userId: string,
-  note: { title: string; content?: string; preview?: string; tags?: NoteTag[]; isInbox?: boolean },
+  note: { title: string; content?: string; preview?: string; tags?: NoteTag[]; isInbox?: boolean; isFavorite?: boolean },
 ): Promise<Note> {
   const { data, error } = await db
     .from("notes")
@@ -228,6 +232,7 @@ export async function insertNote(
       preview: note.preview ?? "",
       tags: note.tags ?? [],
       is_inbox: note.isInbox ?? false,
+      is_favorite: note.isFavorite ?? false,
     })
     .select("*")
     .single()
@@ -238,7 +243,7 @@ export async function insertNote(
 export async function updateNote(
   db: DB,
   id: string,
-  changes: { title?: string; content?: string; preview?: string; tags?: NoteTag[]; isInbox?: boolean },
+  changes: { title?: string; content?: string; preview?: string; tags?: NoteTag[]; isInbox?: boolean; isFavorite?: boolean; isPublic?: boolean },
 ): Promise<void> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (changes.title !== undefined) patch.title = changes.title
@@ -246,6 +251,8 @@ export async function updateNote(
   if (changes.preview !== undefined) patch.preview = changes.preview
   if (changes.tags !== undefined) patch.tags = changes.tags
   if (changes.isInbox !== undefined) patch.is_inbox = changes.isInbox
+  if (changes.isFavorite !== undefined) patch.is_favorite = changes.isFavorite
+  if (changes.isPublic !== undefined) patch.is_public = changes.isPublic
 
   const { error } = await db.from("notes").update(patch).eq("id", id)
   if (error) throw error
@@ -254,6 +261,40 @@ export async function updateNote(
 export async function deleteNote(db: DB, id: string): Promise<void> {
   const { error } = await db.from("notes").delete().eq("id", id)
   if (error) throw error
+}
+
+// ── Public sharing ────────────────────────────────────────────────────────────
+
+export interface PublicNote {
+  id: string
+  title: string
+  content: string
+  tags: NoteTag[]
+  updatedAt: string
+}
+
+/**
+ * Fetch a single note only if it has been made public. Returns null when the
+ * note does not exist or is private. Relies on the "notes_select_public" RLS
+ * policy, so it works for unauthenticated visitors.
+ */
+export async function fetchPublicNote(db: DB, id: string): Promise<PublicNote | null> {
+  const { data, error } = await db
+    .from("notes")
+    .select("id, title, content, tags, updated_at, is_public")
+    .eq("id", id)
+    .eq("is_public", true)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const row = data as NoteRow
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    updatedAt: row.updated_at ?? row.created_at,
+  }
 }
 
 // ── Tasks ────────────────────────────────────────────────────────────────────
@@ -342,6 +383,30 @@ export async function insertProject(db: DB, userId: string, project: Omit<Projec
     .single()
   if (error) throw error
   return rowToProject(data as ProjectRow)
+}
+
+export async function updateProject(
+  db: DB,
+  id: string,
+  changes: { name?: string; emoji?: string | null; area?: string | null },
+): Promise<void> {
+  const patch: Record<string, unknown> = {}
+  if (changes.name !== undefined) patch.name = changes.name
+  if (changes.emoji !== undefined) patch.emoji = changes.emoji
+  if (changes.area !== undefined) patch.area = changes.area
+  const { error } = await db.from("projects").update(patch).eq("id", id)
+  if (error) throw error
+}
+
+/** Delete a project. Tasks are kept but detached (project_id set to null). */
+export async function deleteProject(db: DB, id: string): Promise<void> {
+  const { error: detachError } = await db
+    .from("tasks")
+    .update({ project_id: null })
+    .eq("project_id", id)
+  if (detachError) throw detachError
+  const { error } = await db.from("projects").delete().eq("id", id)
+  if (error) throw error
 }
 
 // ── First-run seeding ─────────────────────────────────────────────────────────

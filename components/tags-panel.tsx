@@ -1,8 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Tag } from "lucide-react"
-import { colorById, type TagEntry } from "@/lib/tags"
+import { Tag, Pencil, Palette, Trash2 } from "lucide-react"
+import { colorById, TAG_COLORS, type TagEntry } from "@/lib/tags"
 
 interface TagsPanelProps {
   tags: TagEntry[]
@@ -10,6 +10,7 @@ interface TagsPanelProps {
   onSelectTag: (label: string | null) => void
   onRenameTag: (oldLabel: string, newLabel: string) => void
   onDeleteTag: (label: string) => void
+  onChangeColor: (label: string, colorId: string) => void
 }
 
 interface ContextMenu {
@@ -24,12 +25,15 @@ export function TagsPanel({
   onSelectTag,
   onRenameTag,
   onDeleteTag,
+  onChangeColor,
 }: TagsPanelProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null) // label being renamed
   const [renameValue, setRenameValue] = useState("")
+  const [colorPickerFor, setColorPickerFor] = useState<{ tag: TagEntry; x: number; y: number } | null>(null)
   const renameRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const colorRef = useRef<HTMLDivElement>(null)
 
   // Close context menu on outside click
   useEffect(() => {
@@ -50,6 +54,33 @@ export function TagsPanel({
       renameRef.current.select()
     }
   }, [renaming])
+
+  // Close color picker on outside click
+  useEffect(() => {
+    if (!colorPickerFor) return
+    function handleClick(e: MouseEvent) {
+      if (colorRef.current && !colorRef.current.contains(e.target as Node)) {
+        setColorPickerFor(null)
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setColorPickerFor(null)
+    }
+    const id = setTimeout(() => {
+      document.addEventListener("mousedown", handleClick)
+      document.addEventListener("keydown", onKey)
+    }, 0)
+    return () => {
+      clearTimeout(id)
+      document.removeEventListener("mousedown", handleClick)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [colorPickerFor])
+
+  const startColorPick = useCallback((tag: TagEntry, x: number, y: number) => {
+    setContextMenu(null)
+    setColorPickerFor({ tag, x, y })
+  }, [])
 
   const handleContextMenu = useCallback((e: React.MouseEvent, tag: TagEntry) => {
     e.preventDefault()
@@ -291,7 +322,32 @@ export function TagsPanel({
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F3EFE8" }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}
           >
+            <Pencil size={14} strokeWidth={2} aria-hidden="true" />
             Rename
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => startColorPick(contextMenu.tag, contextMenu.x, contextMenu.y)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "7px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              textAlign: "left",
+              fontSize: 13,
+              color: "#1C1B19",
+              fontFamily: "system-ui, sans-serif",
+              borderRadius: 6,
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F3EFE8" }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}
+          >
+            <Palette size={14} strokeWidth={2} aria-hidden="true" />
+            Change color
           </button>
           <div style={{ height: 1, background: "#EDE9E2", margin: "2px 0" }} />
           <button
@@ -315,8 +371,57 @@ export function TagsPanel({
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#FEF2F2" }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}
           >
+            <Trash2 size={14} strokeWidth={2} aria-hidden="true" />
             Delete tag
           </button>
+        </div>
+      )}
+
+      {/* Color picker */}
+      {colorPickerFor && (
+        <div
+          ref={colorRef}
+          role="dialog"
+          aria-label={`Choose a color for ${colorPickerFor.tag.displayLabel}`}
+          style={{
+            position: "fixed",
+            left: Math.min(colorPickerFor.x, window.innerWidth - 200),
+            top: Math.min(colorPickerFor.y, window.innerHeight - 120),
+            zIndex: 10000,
+            background: "#FFFEFA",
+            border: "1px solid #E2DDD5",
+            borderRadius: 10,
+            boxShadow: "0 8px 28px rgba(28,27,25,0.16)",
+            padding: 10,
+            width: 184,
+          }}
+        >
+          <div className="grid grid-cols-4 gap-2">
+            {TAG_COLORS.map((c) => {
+              const selected = c.id === colorPickerFor.tag.colorId
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => {
+                    onChangeColor(colorPickerFor.tag.label, c.id)
+                    setColorPickerFor(null)
+                  }}
+                  aria-label={`Set color ${c.id}`}
+                  aria-pressed={selected}
+                  className="flex items-center justify-center rounded-full"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    background: c.bg,
+                    border: selected ? `2px solid ${c.dot}` : "2px solid transparent",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: c.dot }} aria-hidden="true" />
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
     </aside>

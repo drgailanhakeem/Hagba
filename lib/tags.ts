@@ -30,6 +30,13 @@ export function getTagColor(label: string): TagColor {
   return TAG_COLORS[hash % TAG_COLORS.length]
 }
 
+// Resolve a stored NoteTag background class (e.g. "bg-amber-100") back to its
+// palette entry, so a tag's persisted color drives the sidebar dot + pills.
+export function colorByBgClass(bgClass: string | undefined): TagColor | undefined {
+  if (!bgClass) return undefined
+  return TAG_COLORS.find((c) => c.bgClass === bgClass)
+}
+
 // ── Global tag registry ─────────────────────────────────────────────────────
 // Keyed by lowercase label. Managed in page.tsx via React state and passed down.
 
@@ -40,7 +47,9 @@ export interface TagEntry {
   noteCount: number
 }
 
-export function buildTagRegistry(notes: { tags: { label: string }[] }[]): Map<string, TagEntry> {
+export function buildTagRegistry(
+  notes: { tags: { label: string; color?: string }[] }[],
+): Map<string, TagEntry> {
   const map = new Map<string, TagEntry>()
   for (const note of notes) {
     for (const tag of note.tags) {
@@ -49,7 +58,8 @@ export function buildTagRegistry(notes: { tags: { label: string }[] }[]): Map<st
       if (existing) {
         existing.noteCount++
       } else {
-        const color = getTagColor(tag.label)
+        // Prefer the persisted color; fall back to the deterministic one.
+        const color = colorByBgClass(tag.color) ?? getTagColor(tag.label)
         map.set(key, {
           label: key,
           displayLabel: tag.label,

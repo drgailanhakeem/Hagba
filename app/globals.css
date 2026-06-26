@@ -462,3 +462,47 @@
   transform: scale(1.08);
   box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4) !important;
 }
+
+/* ─── Print / Export as PDF ─── */
+/* When printing, hide all app chrome and show only the note's writing area. */
+@media print {
+  html, body {
+    overflow: visible !important;
+    height: auto !important;
+    background: #FFFFFF !important;
+  }
+
+  /* Hide non-essential chrome */
+  .icon-sidebar,
+  aside[aria-label="Note list"],
+  main[aria-label="Note editor"] > footer,
+  .editor-toolbar-actions,
+  .quick-capture-fab,
+  .todo-fab {
+    display: none !important;
+  }
+
+  /* Keep the note title visible but strip the header border/padding */
+  main[aria-label="Note editor"] > header {
+    border-bottom: none !important;
+    padding: 0 !important;
+  }
+
+  /* Let the editor and its scroll area expand for print */
+  main[aria-label="Note editor"] {
+    background: #FFFFFF !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .editor-scroll {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Avoid awkward breaks inside headings */
+  .bear-editor h1,
+  .bear-editor h2,
+  .bear-editor h3 {
+    break-after: avoid;
+  }
+}

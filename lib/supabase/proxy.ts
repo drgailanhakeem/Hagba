@@ -39,9 +39,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect the app: if no user and not on an auth route, redirect to /auth.
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/auth")
-  if (!user && !isAuthRoute) {
+  // Protect the app: if no user and not on a public route, redirect to /auth.
+  // Auth pages and public read-only share pages are accessible without a session.
+  const { pathname } = request.nextUrl
+  const isAuthRoute = pathname.startsWith("/auth")
+  const isPublicRoute = isAuthRoute || pathname.startsWith("/share")
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth"
     return NextResponse.redirect(url)
