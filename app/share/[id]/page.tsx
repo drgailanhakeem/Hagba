@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { fetchPublicNote } from "@/lib/db"
+import { sanitizeNoteHtml } from "@/lib/sanitize-note"
 import { ShareView } from "./share-view"
 
 interface SharePageProps {
@@ -35,5 +36,9 @@ export default async function SharePage({ params }: SharePageProps) {
     notFound()
   }
 
-  return <ShareView note={note} />
+  // Sanitize the stored HTML before it is rendered with dangerouslySetInnerHTML
+  // on this public page (defends against stored XSS via crafted note content).
+  const safeNote = { ...note, content: sanitizeNoteHtml(note.content) }
+
+  return <ShareView note={safeNote} />
 }

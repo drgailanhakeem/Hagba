@@ -260,7 +260,7 @@ export default function Page() {
         const firstRegular = loadedNotes.find((n) => !n.inInbox)
         setActiveNoteId(firstRegular?.id ?? "")
       } catch (err) {
-        console.error("[v0] Failed to load data:", err)
+        console.error("[Hagba] Failed to load data:", err)
         if (!cancelled) setLoadError(true)
       } finally {
         if (!cancelled) setLoading(false)
@@ -302,7 +302,7 @@ export default function Page() {
     if (!userId) return
     const handle = setTimeout(() => {
       upsertUserSettings(supabase, userId, settings).catch((e) =>
-        console.error("[v0] save settings failed:", e)
+        console.error("[Hagba] save settings failed:", e)
       )
     }, 600)
     return () => clearTimeout(handle)
@@ -317,7 +317,7 @@ export default function Page() {
       const url = await uploadAvatar(supabase, userId, file)
       setSettings((prev) => ({ ...prev, avatarUrl: url }))
     } catch (e) {
-      console.error("[v0] avatar upload failed:", e)
+      console.error("[Hagba] avatar upload failed:", e)
     } finally {
       setAvatarUploading(false)
     }
@@ -331,7 +331,7 @@ export default function Page() {
       await supabase.auth.signOut().catch(() => {})
       router.replace("/auth")
     } catch (e) {
-      console.error("[v0] delete account failed:", e)
+      console.error("[Hagba] delete account failed:", e)
     }
   }, [supabase, router])
 
@@ -359,7 +359,7 @@ export default function Page() {
         const done = !t.done
         const completedAt = done ? Date.now() : null
         updateTask(supabase, id, { done, completedAt }).catch((e) =>
-          console.error("[v0] toggle task failed:", e)
+          console.error("[Hagba] toggle task failed:", e)
         )
         return { ...t, done, completedAt }
       })
@@ -373,7 +373,7 @@ export default function Page() {
         if (t.id !== taskId) return t
         const subtasks = t.subtasks.map((s) => (s.id === subId ? { ...s, done: !s.done } : s))
         updateTask(supabase, taskId, { subtasks }).catch((e) =>
-          console.error("[v0] toggle subtask failed:", e)
+          console.error("[Hagba] toggle subtask failed:", e)
         )
         return { ...t, subtasks }
       })
@@ -384,7 +384,7 @@ export default function Page() {
   const handleUpdateTaskTitle = useCallback((id: string, title: string) => {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)))
     updateTask(supabase, id, { title }).catch((e) =>
-      console.error("[v0] rename task failed:", e)
+      console.error("[Hagba] rename task failed:", e)
     )
   }, [supabase])
 
@@ -392,7 +392,7 @@ export default function Page() {
   const handleDeleteTask = useCallback((id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id))
     deleteTask(supabase, id).catch((e) =>
-      console.error("[v0] delete task failed:", e)
+      console.error("[Hagba] delete task failed:", e)
     )
   }, [supabase])
 
@@ -406,7 +406,7 @@ export default function Page() {
         else if (target === "someday") changes = { someday: true, pinnedToday: false, due: null }
         else changes = { someday: false, pinnedToday: false, due: null } // anytime
         updateTask(supabase, id, changes).catch((e) =>
-          console.error("[v0] move task failed:", e)
+          console.error("[Hagba] move task failed:", e)
         )
         return { ...t, ...changes }
       })
@@ -431,7 +431,7 @@ export default function Page() {
     insertTask(supabase, userId, copy)
       .then((created) => setTasks((prev) => prev.map((t) => (t.id === copy.id ? created : t))))
       .catch((e) => {
-        console.error("[v0] duplicate task failed:", e)
+        console.error("[Hagba] duplicate task failed:", e)
         setTasks((prev) => prev.filter((t) => t.id !== copy.id))
       })
   }, [tasks, supabase])
@@ -444,7 +444,7 @@ export default function Page() {
         // Setting an explicit date clears the manual "today" pin / someday flag.
         const next = { ...t, due, pinnedToday: due ? false : t.pinnedToday, someday: due ? false : t.someday }
         updateTask(supabase, id, { due, pinnedToday: next.pinnedToday, someday: next.someday }).catch((e) =>
-          console.error("[v0] update due failed:", e)
+          console.error("[Hagba] update due failed:", e)
         )
         return next
       })
@@ -498,7 +498,7 @@ export default function Page() {
         setTasks((prev) => prev.map((t) => (t.id === base.id ? created : t)))
       })
       .catch((e) => {
-        console.error("[v0] add task failed:", e)
+        console.error("[Hagba] add task failed:", e)
         setTasks((prev) => prev.filter((t) => t.id !== base.id))
       })
   }, [todoSelection, tasks.length, supabase])
@@ -518,14 +518,14 @@ export default function Page() {
         setProjects((prev) => [...prev, created])
         setTodoSelection({ kind: "project", id: created.id })
       })
-      .catch((e) => console.error("[v0] new project failed:", e))
+      .catch((e) => console.error("[Hagba] new project failed:", e))
   }, [supabase])
 
   // Rename a project
   const handleRenameProject = useCallback((id: string, name: string) => {
     setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)))
     updateProject(supabase, id, { name }).catch((e) =>
-      console.error("[v0] rename project failed:", e)
+      console.error("[Hagba] rename project failed:", e)
     )
   }, [supabase])
 
@@ -533,7 +533,7 @@ export default function Page() {
   const handleChangeProjectEmoji = useCallback((id: string, emoji: string) => {
     setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, emoji } : p)))
     updateProject(supabase, id, { emoji }).catch((e) =>
-      console.error("[v0] change project emoji failed:", e)
+      console.error("[Hagba] change project emoji failed:", e)
     )
   }, [supabase])
 
@@ -545,7 +545,7 @@ export default function Page() {
       sel.kind === "project" && sel.id === id ? { kind: "section", id: "today" } : sel
     )
     deleteProject(supabase, id).catch((e) =>
-      console.error("[v0] delete project failed:", e)
+      console.error("[Hagba] delete project failed:", e)
     )
   }, [supabase])
 
@@ -575,7 +575,7 @@ export default function Page() {
         if (n.tags.some((t) => t.label.toLowerCase() === label.toLowerCase())) return n
         const tags = [...n.tags, noteTag]
         updateNote(supabase, n.id, { tags }).catch((e) =>
-          console.error("[v0] add tag failed:", e)
+          console.error("[Hagba] add tag failed:", e)
         )
         return { ...n, tags }
       })
@@ -594,7 +594,7 @@ export default function Page() {
             : t
         )
         updateNote(supabase, n.id, { tags }).catch((e) =>
-          console.error("[v0] rename tag failed:", e)
+          console.error("[Hagba] rename tag failed:", e)
         )
         return { ...n, tags }
       })
@@ -609,7 +609,7 @@ export default function Page() {
         if (!n.tags.some((t) => t.label.toLowerCase() === label)) return n
         const tags = n.tags.filter((t) => t.label.toLowerCase() !== label)
         updateNote(supabase, n.id, { tags }).catch((e) =>
-          console.error("[v0] delete tag failed:", e)
+          console.error("[Hagba] delete tag failed:", e)
         )
         return { ...n, tags }
       })
@@ -629,7 +629,7 @@ export default function Page() {
             : t
         )
         updateNote(supabase, n.id, { tags }).catch((e) =>
-          console.error("[v0] change tag color failed:", e)
+          console.error("[Hagba] change tag color failed:", e)
         )
         return { ...n, tags }
       })
@@ -661,7 +661,7 @@ export default function Page() {
       prev.map((n) => (n.id === id ? { ...n, ...changes } : n))
     )
     updateNote(supabase, id, changes).catch((e) =>
-      console.error("[v0] save note failed:", e)
+      console.error("[Hagba] save note failed:", e)
     )
   }, [supabase])
 
@@ -687,7 +687,7 @@ export default function Page() {
         setActiveNoteId(created.id)
       })
       .catch((e) => {
-        console.error("[v0] new note failed:", e)
+        console.error("[Hagba] new note failed:", e)
         setNotes((prev) => prev.filter((n) => n.id !== tempId))
       })
   }, [supabase])
@@ -720,7 +720,7 @@ export default function Page() {
         setNotes((prev) => prev.map((n) => (n.id === tempId ? created : n)))
       })
       .catch((e) => {
-        console.error("[v0] capture failed:", e)
+        console.error("[Hagba] capture failed:", e)
         setNotes((prev) => prev.filter((n) => n.id !== tempId))
       })
   }, [supabase])
@@ -731,7 +731,7 @@ export default function Page() {
       prev.map((n) => (n.id === id ? { ...n, inInbox: false } : n))
     )
     updateNote(supabase, id, { isInbox: false }).catch((e) =>
-      console.error("[v0] move to notes failed:", e)
+      console.error("[Hagba] move to notes failed:", e)
     )
   }, [supabase])
 
@@ -742,7 +742,7 @@ export default function Page() {
         if (n.id !== id) return n
         const inInbox = !n.inInbox
         updateNote(supabase, id, { isInbox: inInbox }).catch((e) =>
-          console.error("[v0] toggle inbox failed:", e)
+          console.error("[Hagba] toggle inbox failed:", e)
         )
         return { ...n, inInbox }
       })
@@ -756,7 +756,7 @@ export default function Page() {
         if (n.id !== id) return n
         const isFavorite = !n.isFavorite
         updateNote(supabase, id, { isFavorite }).catch((e) =>
-          console.error("[v0] toggle favorite failed:", e)
+          console.error("[Hagba] toggle favorite failed:", e)
         )
         return { ...n, isFavorite }
       })
@@ -774,7 +774,7 @@ export default function Page() {
           ? n.tags.filter((t) => t.label.toLowerCase() !== label.toLowerCase())
           : [...n.tags, { label, color: color.bgClass, textColor: color.textClass }]
         updateNote(supabase, noteId, { tags }).catch((e) =>
-          console.error("[v0] toggle tag failed:", e)
+          console.error("[Hagba] toggle tag failed:", e)
         )
         return { ...n, tags }
       })
@@ -787,7 +787,7 @@ export default function Page() {
       prev.map((n) => {
         if (n.id !== id) return n
         updateNote(supabase, id, { isPublic }).catch((e) =>
-          console.error("[v0] set public failed:", e)
+          console.error("[Hagba] set public failed:", e)
         )
         return { ...n, isPublic }
       })
@@ -825,7 +825,7 @@ export default function Page() {
         if (!created.inInbox) setActiveNoteId(created.id)
       })
       .catch((e) => {
-        console.error("[v0] duplicate note failed:", e)
+        console.error("[Hagba] duplicate note failed:", e)
         setNotes((prev) => prev.filter((n) => n.id !== tempId))
       })
   }, [notes, supabase])
@@ -835,7 +835,7 @@ export default function Page() {
     setNotes((prev) => prev.filter((n) => n.id !== id))
     if (activeNoteId === id) setActiveNoteId(regularNotes[0]?.id ?? "")
     deleteNote(supabase, id).catch((e) =>
-      console.error("[v0] delete note failed:", e)
+      console.error("[Hagba] delete note failed:", e)
     )
   }, [activeNoteId, regularNotes, supabase])
 

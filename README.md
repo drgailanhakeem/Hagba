@@ -1,33 +1,82 @@
-# bear-style-note-taking-layout
+# Hagba
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+A Bear/Things-style notes and tasks app built with **Next.js** (App Router), **Supabase** (auth, Postgres, storage), and a **TipTap** rich-text editor.
 
-## Built with v0
+## Features
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+- Rich-text notes with slash commands, code blocks, task lists, and hashtag tags
+- Things-style to-dos: Inbox / Today / Upcoming / Anytime / Someday, projects, subtasks
+- Public read-only note sharing via `/share/[id]`
+- Pomodoro timer, quick capture, per-user settings and avatars
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_eOxzKsVSU2SzwMUHHI3E2y9QDNDS)
+## Prerequisites
 
-## Getting Started
+- Node.js 20+
+- A [Supabase](https://supabase.com) project
+- [pnpm](https://pnpm.io) (recommended)
 
-First, run the development server:
+## Getting started
+
+1. **Install dependencies**
+
+   ```bash
+   pnpm install
+   ```
+
+2. **Configure environment variables**
+
+   Copy the example file and fill in your Supabase credentials (Settings → API):
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   | Variable | Scope | Notes |
+   | --- | --- | --- |
+   | `NEXT_PUBLIC_SUPABASE_URL` | public | Project URL |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | Anon/publishable key |
+   | `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Admin key. **Never** prefix with `NEXT_PUBLIC_` — it bypasses RLS and would be exposed in the client bundle. |
+
+3. **Apply the database policies**
+
+   Authorization is enforced entirely by Postgres Row Level Security. Run the
+   migration in `supabase/migrations/0001_rls_policies.sql` against your project
+   (Supabase SQL editor, or `supabase db push`). It enables RLS, restricts every
+   table to its owner, allows public read of shared notes, and locks the
+   `avatars` storage bucket to each user's own folder.
+
+4. **Run the dev server**
+
+   ```bash
+   pnpm dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000).
+
+## Scripts
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+pnpm dev        # start the dev server
+pnpm build      # production build
+pnpm start      # serve the production build
+pnpm lint       # eslint
+pnpm typecheck  # tsc --noEmit (also enforced during build)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Security notes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Public share pages** render note HTML through `lib/sanitize-note.ts`, which
+  strips scripts, event handlers, and unsafe URL schemes before rendering.
+- **The service-role key** is isolated in `lib/supabase/env.server.ts` and only
+  ever read from a non-public env var.
+- **All per-user access control** lives in the RLS policies (step 3); the client
+  talks to Supabase directly, so these policies are the security boundary.
 
-## Learn More
+## Project structure
 
-To learn more, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+```
+app/            Next.js routes (auth, share, account API, main page)
+components/      UI, editor (TipTap), panels, modals
+lib/            Data access (Supabase), domain logic, sanitization, helpers
+supabase/       SQL migrations (RLS policies)
+```

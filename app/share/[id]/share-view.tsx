@@ -97,7 +97,8 @@ export function ShareView({ note }: { note: PublicNote }) {
         {/* Rendered note body — reuses the editor prose styles */}
         <div
           className="bear-editor"
-          // The HTML originates from the note owner's own editor content.
+          // Content is sanitized server-side in page.tsx (sanitizeNoteHtml)
+          // before it reaches this component.
           dangerouslySetInnerHTML={{ __html: note.content || "<p></p>" }}
         />
       </article>

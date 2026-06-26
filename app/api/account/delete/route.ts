@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient as createServerClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
-import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from "@/lib/supabase/env"
+import { SUPABASE_URL } from "@/lib/supabase/env"
+import { SUPABASE_SERVICE_ROLE_KEY } from "@/lib/supabase/env.server"
 
 export async function POST() {
   // Identify the signed-in user from their session cookies.
@@ -44,7 +45,7 @@ export async function POST() {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error("[v0] delete account failed:", err)
+    console.error("[Hagba] delete account failed:", err)
     return NextResponse.json({ error: "Failed to delete account." }, { status: 500 })
   }
 }

@@ -11,7 +11,7 @@ export default function AuthErrorPage() {
         The authentication link may have expired or already been used. Please try
         signing in again.
       </p>
-      <Link href="/auth/login" className="auth-btn-primary mt-6 inline-flex justify-center">
+      <Link href="/auth" className="auth-btn-primary mt-6 inline-flex justify-center">
         Back to sign in
       </Link>
     </AuthShell>
